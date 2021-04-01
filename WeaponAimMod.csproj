@@ -37,6 +37,9 @@
     <Reference Include="Assembly-CSharp">
       <HintPath>..\..\TerraTechWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
     </Reference>
+    <Reference Include="SozCore">
+      <HintPath>..\..\QMods\SozCore\SozCore.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -58,12 +61,32 @@
   <ItemGroup>
     <Compile Include="src\IngressPoint.cs" />
     <Compile Include="src\TargetAimerPatch.cs" />
+    <Compile Include="src\TargetManager.cs" />
     <Compile Include="src\TimedFuseData.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Properties\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>del *.pdb
+
+@setlocal enableextensions enabledelayedexpansion
+
+set modpath="C:\Program Files (x86)\Steam\steamapps\common\TerraTech\QMods\$(TargetName)"
+
+for %25%25I in (*) do if not %25%25I == $(TargetFileName) (
+del "%25%25I"
+)
+
+if not exist !modpath! (
+echo Creating mod folder
+mkdir !modpath!
+)
+echo Copying to game
+set e=$(TargetDir)..\&gt;nul
+xcopy /S /Y /R "$(TargetFileName)" !modpath!</PostBuildEvent>
+  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
