@@ -37,6 +37,9 @@
     <Reference Include="Assembly-CSharp">
       <HintPath>..\..\TerraTechWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
     </Reference>
+    <Reference Include="DebugWrapper">
+      <HintPath>..\..\TerraTechWin64_Data\Managed\DebugWrapper.dll</HintPath>
+    </Reference>
     <Reference Include="SozCore">
       <HintPath>..\..\QMods\SozCore\SozCore.dll</HintPath>
     </Reference>

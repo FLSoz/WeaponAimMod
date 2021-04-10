@@ -11,5 +11,6 @@ namespace WeaponAimMod
     {
         public float m_FuseTime = 10.0f;
         public float offset = 0.0f;
+        public Vector3 expectedIntercept;
     }
 }

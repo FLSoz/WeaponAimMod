@@ -262,20 +262,16 @@ namespace WeaponAimMod.src
             return num;
         }
 
-        public static Vector3 GetAcceleration(Tank tank)
+        // Given input parameters, solve the ballistic equation needed to get to the target
+        public static float SolveBallisticArc(Vector3 proj_pos, float S, Vector3 target_pos, Vector3 V, Vector3 A)
         {
-            return Vector3.zero;
-        }
+            // Initialize output parameters
+            float bestTime = Mathf.Infinity;
+            Vector3 D = target_pos - proj_pos;
 
-        [HarmonyPatch(typeof(TargetAimer))]
-        [HarmonyPatch("UpdateTarget")]
-        public static class TargetAimerPatch
-        {
-            public static float SolveBallisticArc(Vector3 proj_pos, float S, Vector3 target_pos, Vector3 V, Vector3 A)
+            // If we have acceleration, use quartic
+            if (A.sqrMagnitude > 1)
             {
-                // Initialize output parameters
-                float bestTime = Mathf.Infinity;
-
                 // Derivation 
 
                 //  Variable declaration:
@@ -294,24 +290,20 @@ namespace WeaponAimMod.src
                 //  We take the property that square of magnitude == dot product with itself, and commutative/distributive dot product properties to get:
                 //  S^2t^2 = (D ○ D) + 2(D ○ V)t + (D ○ A)t^2 + (A ○ V)t^3 + (A ○ A)t^4/4 + (V ○ V)t^2
                 //  ((A ○ A) / 4) t^4 + (A ○ V) t^3 + ((V ○ V) + (D ○ A) - S^2) t^2 + 2(D ○ V)t + (D ○ D) = 0
-                Vector3 D = target_pos - proj_pos;
 
                 // Solve quartic
                 double[] times = new double[4];
-                int numTimes = SolveQuartic(A.Dot(A) / 4, A.Dot(V), (V.Dot(V) + D.Dot(A) - (S * S)), 2 * D.Dot(V), D.Dot(D), out times[0], out times[1], out times[2], out times[3]);
+                int numTimes = SolveQuartic(A.sqrMagnitude / 4, A.Dot(V), (V.sqrMagnitude + D.Dot(A) - (S * S)), 2 * D.Dot(V), D.sqrMagnitude, out times[0], out times[1], out times[2], out times[3]);
 
                 // Sort so faster collision is found first
                 System.Array.Sort(times);
 
                 // Plug quartic solutions into base equations
                 // There should never be more than 2 positive, real roots.
-                Vector3[] solutions = new Vector3[2];
-                int numSolutions = 0;
-
-                for (int i = 0; i < times.Length && numSolutions < 2; ++i)
+                for (int i = 0; i < times.Length; ++i)
                 {
-                    float t = (float) times[i];
-                    if (t <= 0 || float.IsNaN(t))
+                    float t = (float)times[i];
+                    if (t < 0 || float.IsNaN(t) || float.IsInfinity(t) || float.IsNegativeInfinity(t))
                         continue;
 
                     if (t < bestTime)
@@ -319,14 +311,138 @@ namespace WeaponAimMod.src
                         bestTime = t;
                     }
                 }
+            }
+            // Else, use simplified
+            else
+            {
+                // Derivation 
 
-                // Write out solutions
-                return bestTime;
+                //  Variable declaration:
+                //      D: target position (relative. Assume projectile source is stationary at origin to simplify calcs)
+                //      S: Projectile Speed
+                //      t: time till intercept
+                //      V: target velocity
+                //      u: Unit vector of the projectile velocity that has a valid intercept
+
+                //  For intercept, the following must be true:
+                //  D + Vt = uSt
+
+                //  Note, however, that the projectile, which is travelling in a straight line (no gravity. We say is stationary, gravity is part of relative target acceleration),
+                //  that ||D + Vt|| = St
+                //  We take the property that square of magnitude == dot product with itself, and commutative/distributive dot product properties to get:
+                //  S^2t^2 = (D ○ D) + 2(D ○ V)t + (V ○ V)t^2
+                //  ((V ○ V) - S^2) t^2 + 2(D ○ V)t + (D ○ D) = 0
+
+                float a = V.sqrMagnitude - (S * S);
+                float b = 2 * D.Dot(V);
+                float c = D.sqrMagnitude;
+
+                float determinant = (b * b) - (4 * a * c);
+                if (determinant > 0)
+                {
+                    float sqrt = Mathf.Sqrt(determinant);
+                    float temp1 = (-b - sqrt) / (2 * a);
+                    float temp2 = (sqrt - b) / (2 * a);
+                    if (temp1 < 0f)
+                    {
+                        return temp2;
+                    }
+                    else if (temp2 < 0f)
+                    {
+                        return temp1;
+                    }
+                    else
+                    {
+                        return Mathf.Min(temp1, temp2);
+                    }
+                }
             }
 
+            // Write out solutions
+            return bestTime;
+        }
+
+        public static Vector3 GetAcceleration(Tank tank)
+        {
+            if (tank != null) {
+                TargetManager targetManager = tank.GetComponentInParent<TargetManager>();
+                if (targetManager != null)
+                {
+                    return targetManager.Acceleration;
+                }
+            }
+            return Vector3.zero;
+        }
+
+        // Target leading for missiles
+        [HarmonyPatch(typeof(SeekingProjectile))]
+        [HarmonyPatch("FixedUpdate")]
+        public static class PatchMissiles
+        {
+            private static FieldInfo m_MyProjectile = typeof(SeekingProjectile).GetField("m_MyProjectile", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            private static FieldInfo m_MyTransform = typeof(SeekingProjectile).GetField("m_MyTransform", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            private static FieldInfo m_TurnSpeed = typeof(SeekingProjectile).GetField("m_TurnSpeed", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            private static FieldInfo m_ApplyRotationTowardsTarget = typeof(SeekingProjectile).GetField("m_ApplyRotationTowardsTarget", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            private static MethodInfo GetCurrentTarget = typeof(SeekingProjectile).GetMethod("GetCurrentTarget", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            private static MethodInfo GetTargetAimPosition = typeof(SeekingProjectile).GetMethod("GetTargetAimPosition", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
+            public static bool Prefix(ref SeekingProjectile __instance)
+            {
+                Projectile projectile = (Projectile)m_MyProjectile.GetValue(__instance);
+
+                // Only do seeking if is a player, or enemy lead enabled
+                if (WrappedDataHolder.cheatDisabled || projectile.Shooter == null || projectile.Shooter.ControllableByAnyPlayer)
+                {
+                    Visible target = (Visible) GetCurrentTarget.Invoke(__instance, null);
+                    Transform me = (Transform) m_MyTransform.GetValue(__instance);
+
+                    if (target.IsNotNull()) {
+                        Vector3 targetPosition = (Vector3)GetTargetAimPosition.Invoke(__instance, null);
+                        float speed = projectile.rbody.velocity.magnitude;
+
+                        float estTime = (targetPosition - me.position).magnitude / speed;
+                        float finalThreshold = 0.1f;
+
+                        bool applyRotation = (bool)m_ApplyRotationTowardsTarget.GetValue(__instance);
+
+                        if (estTime >= finalThreshold)
+                        {
+                            Vector3 V = target.rbody.velocity;
+                            Vector3 A = estTime >= 1.5f ? GetAcceleration(target.tank) : Vector3.zero;
+                            float time = SolveBallisticArc(me.position, speed, targetPosition, V, A);
+
+                            if (time != Mathf.Infinity)
+                            {
+                                targetPosition += (V * time) + (A * time * time / 2);
+                            }
+                        }
+
+                        Vector3 vector = targetPosition - me.position;
+                        Vector3 normalized = Vector3.Cross(projectile.rbody.velocity, vector).normalized;
+                        float b = Vector3.Angle(projectile.trans.forward, vector);
+
+                        Quaternion quaternion = Quaternion.AngleAxis(Mathf.Min((float) m_TurnSpeed.GetValue(__instance) * Time.deltaTime, b), normalized);
+                        projectile.rbody.velocity = quaternion * projectile.rbody.velocity;
+                        if (applyRotation)
+                        {
+                            Quaternion rot = quaternion * projectile.rbody.rotation;
+                            projectile.rbody.MoveRotation(rot);
+                        }
+                    }
+                    return false;
+                }
+                return true;
+            }
+        }
+
+        // Target leading for weapons
+        [HarmonyPatch(typeof(TargetAimer))]
+        [HarmonyPatch("UpdateTarget")]
+        public static class TargetAimerPatch
+        {
             public static void Postfix(ref TargetAimer __instance)
             {
-                if (__instance.HasTarget)
+                if (__instance.HasTarget && !Singleton.Manager<ManPauseGame>.inst.IsPaused)
                 {
                     TankBlock block = (TankBlock)WrappedDataHolder.m_Block.GetValue(__instance);
                     Tank tank = (bool)(UnityEngine.Object)block ? block.tank : (Tank)null;
@@ -358,7 +474,8 @@ namespace WeaponAimMod.src
 
                         float time = relDist.magnitude / componentInParent1.m_MuzzleVelocity;
 
-                        Vector3 relativeAcceleration = GetAcceleration(__instance.Target.tank) - GetAcceleration(tank);
+                        Vector3 targetAcceleration = GetAcceleration(__instance.Target.tank);
+                        Vector3 relativeAcceleration = targetAcceleration;
 
                         if (useGravity)
                         {
@@ -366,17 +483,34 @@ namespace WeaponAimMod.src
                         }
 
                         float exactTime = SolveBallisticArc(__instance.transform.position, componentInParent1.m_MuzzleVelocity, AimPointVector, relativeVelocity, relativeAcceleration);
+                        Vector3 adjIntercept = AimPointVector + (relativeVelocity * time);
                         if (exactTime != Mathf.Infinity)
                         {
                             time = exactTime;
+                            adjIntercept = AimPointVector + (relativeVelocity * time) + ((relativeAcceleration + (useGravity ? Physics.gravity : Vector3.zero)) / 2 * time * time);
+
+                            /* Vector3 tarIntercept = AimPointVector + (__instance.Target.rbody.velocity * time) + ((relativeAcceleration + (useGravity ? Physics.gravity : Vector3.zero)) / 2 * (time * time));
+                            Vector3 intercept = __instance.transform.position + ((rbodyTank.velocity + angularToggle + (componentInParent1.m_MuzzleVelocity * (adjIntercept - __instance.transform.position).normalized)) * time) + (useGravity ? Physics.gravity / 2 * (time * time) : Vector3.zero);
+
+                            long currentTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+                            long futureTime = currentTime + (long) Mathf.Floor(time * 1000);
+
+                            if (block.name == "_C_BLOCK:10021")
+                            {
+                                Console.WriteLine($"[{currentTime}] ==({time})==> [{futureTime}] {block.name} My pos: {__instance.transform.position}, Target pos: {AimPointVector}, " +
+                                    $"Target Intercept: {tarIntercept}, Adj Intercept: {adjIntercept}, My Vel:{rbodyTank.velocity + angularToggle}, " +
+                                    $"TargetVel {__instance.Target.rbody.velocity}, Muzzle Velocity: {componentInParent1.m_MuzzleVelocity}, Target Acceleration: {targetAcceleration}, RelativeAcceleration: {relativeAcceleration + (useGravity ? Physics.gravity : Vector3.zero)}");
+                            } */
                         }
 
                         if (timedFuse != null)
                         {
+                            // Console.WriteLine($"Set {block.name} fuse to {timedFuse.m_FuseTime} with offset of {timedFuse.offset}");
                             timedFuse.m_FuseTime = time;
+                            // timedFuse.expectedIntercept = AimPointVector +(__instance.Target.rbody.velocity * time) + ((relativeAcceleration + (useGravity ? Physics.gravity : Vector3.zero)) / 2 * (time * time));
                         }
 
-                        WrappedDataHolder.m_TargetPosition.SetValue(__instance, (time * relativeVelocity) + AimPointVector);
+                        WrappedDataHolder.m_TargetPosition.SetValue(__instance, adjIntercept);
                     }
                     // Either disabled for enemy, or is a beam weapon
                     else
@@ -388,6 +522,27 @@ namespace WeaponAimMod.src
                     }
                 }
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(Projectile))]
+    [HarmonyPatch("OnLifetimeEnd")]
+    public static class PatchExplosionSpawn
+    {
+        private static FieldInfo m_ExplodeAfterLifetime = typeof(Projectile).GetField("m_ExplodeAfterLifetime", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        private static FieldInfo m_DestroyTimeout = typeof(Projectile).GetField("m_DestroyTimeout", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        private static MethodInfo SpawnExplosion = typeof(Projectile).GetMethod("SpawnExplosion", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
+        public static bool Prefix(ref Projectile __instance)
+        {
+            d.Assert(__instance.gameObject.activeInHierarchy);
+            if ((bool) m_ExplodeAfterLifetime.GetValue(__instance))
+            {
+                Vector3 adjPos = __instance.trans.position + (__instance.rbody.velocity * (float)m_DestroyTimeout.GetValue(__instance));
+                SpawnExplosion.Invoke(__instance, new object[] { adjPos, null });
+            }
+            __instance.Recycle(true);
+            return false;
         }
     }
 
