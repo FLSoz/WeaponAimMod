@@ -2,7 +2,7 @@
   "Id": "Weapons will now partially compensate for target/firing velocities",
   "DisplayName": "Weapon Aim Mod",
   "Author": "FLSoz",
-  "Version": "0.1.0",
+  "Version": "0.5.0",
   "Enable": true,
   "AssemblyName": "WeaponAimMod.dll",
   "EntryMethod": "WeaponAimMod.src.IngressPoint.Main"

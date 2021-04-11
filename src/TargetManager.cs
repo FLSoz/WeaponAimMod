@@ -27,6 +27,19 @@ namespace WeaponAimMod.src
             }
         }
 
+        public static Vector3 GetAcceleration(Tank tank)
+        {
+            if (tank != null)
+            {
+                TargetManager targetManager = tank.GetComponentInParent<TargetManager>();
+                if (targetManager != null)
+                {
+                    return targetManager.Acceleration;
+                }
+            }
+            return Vector3.zero;
+        }
+
         private void FixedUpdate()
         {
             if (!Singleton.Manager<ManPauseGame>.inst.IsPaused)

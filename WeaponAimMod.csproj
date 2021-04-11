@@ -34,14 +34,17 @@
     <Reference Include="0Harmony">
       <HintPath>..\..\TerraTechWin64_Data\Managed\0Harmony.dll</HintPath>
     </Reference>
+    <Reference Include="0Nuterra.NativeOptions">
+      <HintPath>..\..\QMods\0Nuterra.NativeOptions\0Nuterra.NativeOptions.dll</HintPath>
+    </Reference>
+    <Reference Include="AcModHelper.Config">
+      <HintPath>..\..\QMods\ModHelper.Config\AcModHelper.Config.dll</HintPath>
+    </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>..\..\TerraTechWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="DebugWrapper">
       <HintPath>..\..\TerraTechWin64_Data\Managed\DebugWrapper.dll</HintPath>
-    </Reference>
-    <Reference Include="SozCore">
-      <HintPath>..\..\QMods\SozCore\SozCore.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -62,8 +65,12 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="src\AccurateExplosionSpawnPatch.cs" />
+    <Compile Include="src\BallisticEquations.cs" />
     <Compile Include="src\IngressPoint.cs" />
-    <Compile Include="src\TargetAimerPatch.cs" />
+    <Compile Include="src\MissilePatch.cs" />
+    <Compile Include="src\ProjectilePatch.cs" />
+    <Compile Include="src\SmartMissile.cs" />
     <Compile Include="src\TargetManager.cs" />
     <Compile Include="src\TimedFuseData.cs" />
   </ItemGroup>

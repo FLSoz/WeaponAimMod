@@ -1,0 +1,30 @@
+﻿using Harmony;
+using UnityEngine;
+using System.Reflection;
+
+namespace WeaponAimMod.src
+{
+    public class AccurateExplosionSpawnPatch
+    {
+        [HarmonyPatch(typeof(Projectile))]
+        [HarmonyPatch("OnLifetimeEnd")]
+        public static class PatchExplosionSpawn
+        {
+            private static FieldInfo m_ExplodeAfterLifetime = typeof(Projectile).GetField("m_ExplodeAfterLifetime", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            private static FieldInfo m_DestroyTimeout = typeof(Projectile).GetField("m_DestroyTimeout", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            private static MethodInfo SpawnExplosion = typeof(Projectile).GetMethod("SpawnExplosion", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
+            public static bool Prefix(ref Projectile __instance)
+            {
+                d.Assert(__instance.gameObject.activeInHierarchy);
+                if ((bool)m_ExplodeAfterLifetime.GetValue(__instance))
+                {
+                    Vector3 adjPos = __instance.trans.position + (__instance.rbody.velocity * (float)m_DestroyTimeout.GetValue(__instance));
+                    SpawnExplosion.Invoke(__instance, new object[] { adjPos, null });
+                }
+                __instance.Recycle(true);
+                return false;
+            }
+        }
+    }
+}

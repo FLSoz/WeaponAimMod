@@ -1,1 +1,3 @@
 https://github.com/FLSoz/WeaponAimMod/tree/master/bin/Debug
+/Aceba1/TTQMM-ModConfigHelper
+/Exund/Nuterra.NativeOptions
