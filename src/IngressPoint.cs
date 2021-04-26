@@ -19,6 +19,9 @@ namespace WeaponAimMod.src
         public static bool PlayerMissileLead = true;
         public static bool EnemyMissileLead = false;
         public static bool SmartMissile = true;
+        public static bool BallisticMissile = false;
+        public static bool AutoSetFuse = false;
+        public static bool OctantAim = false;
     }
 
     internal class IngressPoint
@@ -31,10 +34,12 @@ namespace WeaponAimMod.src
         public static OptionToggle PlayerMissileLead;
         public static OptionToggle EnemyMissileLead;
         public static OptionToggle SmartMissile;
+        public static OptionToggle BallisticMissile;
+        // public static OptionToggle AutoSetFuse;
+        public static OptionToggle OctantAim;
 
         public static void Main()
         {
-            // Console.WriteLine(Physics.gravity);
             // SozCore.IngressPoint.AddRequiredTechComponent(typeof(TargetManager));
             // .WriteLine("Assume added TargetManager as requried component");
 
@@ -50,6 +55,9 @@ namespace WeaponAimMod.src
             Config.BindConfig<WeaponAimSettings>(null, "SmartMissile"); // Using BindConfig will set UseRef as true, changing some methods to work with the RefList.
             Config.BindConfig<WeaponAimSettings>(null, "PlayerMissileLead"); // If 'Setting2' was loaded from the config.json, it will apply the variable to the field.
             Config.BindConfig<WeaponAimSettings>(null, "EnemyMissileLead"); // If 'Setting2' was loaded from the config.json, it will apply the variable to the field.
+            Config.BindConfig<WeaponAimSettings>(null, "BallisticMissile"); // If 'Setting2' was loaded from the config.json, it will apply the variable to the field.
+            // Config.BindConfig<WeaponAimSettings>(null, "AutoSetFuse"); // If 'Setting2' was loaded from the config.json, it will apply the variable to the field.
+            Config.BindConfig<WeaponAimSettings>(null, "OctantAim"); // If 'Setting2' was loaded from the config.json, it will apply the variable to the field.
 
             // UI
             PlayerLead = new OptionToggle("Player leading", ModName, WeaponAimSettings.PlayerLead);
@@ -66,6 +74,15 @@ namespace WeaponAimMod.src
 
             SmartMissile = new OptionToggle("Smart missiles", ModName, WeaponAimSettings.SmartMissile);
             SmartMissile.onValueSaved.AddListener(() => { WeaponAimSettings.SmartMissile = SmartMissile.SavedValue; Config.WriteConfigJsonFile(); });
+
+            BallisticMissile = new OptionToggle("Ballistic missiles", ModName, WeaponAimSettings.BallisticMissile);
+            BallisticMissile.onValueSaved.AddListener(() => { WeaponAimSettings.BallisticMissile = BallisticMissile.SavedValue; Config.WriteConfigJsonFile(); });
+
+            // AutoSetFuse = new OptionToggle("All weapons timed fuse", ModName, WeaponAimSettings.AutoSetFuse);
+            // AutoSetFuse.onValueSaved.AddListener(() => { WeaponAimSettings.AutoSetFuse = AutoSetFuse.SavedValue; Config.WriteConfigJsonFile(); });
+
+            OctantAim = new OptionToggle("Independent Targeting", ModName, WeaponAimSettings.OctantAim);
+            OctantAim.onValueSaved.AddListener(() => { WeaponAimSettings.OctantAim = OctantAim.SavedValue; Config.WriteConfigJsonFile(); });
         }
     }
 }

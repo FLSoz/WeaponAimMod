@@ -60,16 +60,23 @@
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>..\..\TerraTechWin64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.Networking">
+      <HintPath>..\..\TerraTechWin64_Data\Managed\UnityEngine.Networking.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.PhysicsModule">
       <HintPath>..\..\TerraTechWin64_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="src\AccurateExplosionSpawnPatch.cs" />
+    <Compile Include="src\AutoSetFusePatch.cs" />
     <Compile Include="src\BallisticEquations.cs" />
     <Compile Include="src\IngressPoint.cs" />
+    <Compile Include="src\ListExtensions.cs" />
     <Compile Include="src\MissilePatch.cs" />
+    <Compile Include="src\Patches.cs" />
     <Compile Include="src\ProjectilePatch.cs" />
+    <Compile Include="src\OctantVision.cs" />
     <Compile Include="src\SmartMissile.cs" />
     <Compile Include="src\TargetManager.cs" />
     <Compile Include="src\TimedFuseData.cs" />

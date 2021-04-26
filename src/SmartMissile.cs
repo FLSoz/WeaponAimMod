@@ -11,8 +11,11 @@ namespace WeaponAimMod.src
     public class SmartMissile : MonoBehaviour
     {
         public float time;
+        public float expireTime;
+        public float totalTime;
         public Vector3 position;
         public Vector3 velocity;
         public Visible target;
+        public bool finalCorrection;
     }
 }

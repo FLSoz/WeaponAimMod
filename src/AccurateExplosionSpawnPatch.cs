@@ -10,9 +10,9 @@ namespace WeaponAimMod.src
         [HarmonyPatch("OnLifetimeEnd")]
         public static class PatchExplosionSpawn
         {
-            private static FieldInfo m_ExplodeAfterLifetime = typeof(Projectile).GetField("m_ExplodeAfterLifetime", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            private static FieldInfo m_DestroyTimeout = typeof(Projectile).GetField("m_DestroyTimeout", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            private static MethodInfo SpawnExplosion = typeof(Projectile).GetMethod("SpawnExplosion", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            private static readonly FieldInfo m_ExplodeAfterLifetime = typeof(Projectile).GetField("m_ExplodeAfterLifetime", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            private static readonly FieldInfo m_DestroyTimeout = typeof(Projectile).GetField("m_DestroyTimeout", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            private static readonly MethodInfo SpawnExplosion = typeof(Projectile).GetMethod("SpawnExplosion", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
             public static bool Prefix(ref Projectile __instance)
             {

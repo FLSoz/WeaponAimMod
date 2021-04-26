@@ -170,4 +170,6 @@ C:\Program Files (x86)\Steam\steamapps\common\TerraTech\InDevMods\WeaponAimMod\b
 C:\Program Files (x86)\Steam\steamapps\common\TerraTech\InDevMods\WeaponAimMod\bin\Debug\Mystery Node Set.dll
 C:\Program Files (x86)\Steam\steamapps\common\TerraTech\InDevMods\WeaponAimMod\obj\Debug\WeaponAimMod.csproj.CopyComplete
 C:\Program Files (x86)\Steam\steamapps\common\TerraTech\InDevMods\WeaponAimMod\obj\Debug\WeaponAimMod.csprojAssemblyReference.cache
-C:\Program Files (x86)\Steam\steamapps\common\TerraTech\InDevMods\WeaponAimMod\bin\Debug\SozCore.dll
+C:\Program Files (x86)\Steam\steamapps\common\TerraTech\InDevMods\WeaponAimMod\bin\Debug\0Nuterra.NativeOptions.dll
+C:\Program Files (x86)\Steam\steamapps\common\TerraTech\InDevMods\WeaponAimMod\bin\Debug\AcModHelper.Config.dll
+C:\Program Files (x86)\Steam\steamapps\common\TerraTech\InDevMods\WeaponAimMod\bin\Debug\AcModHelper.Config.xml

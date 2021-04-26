@@ -248,48 +248,102 @@ namespace WeaponAimMod.src
             // If we have acceleration, use quartic
             if (A.sqrMagnitude > 1)
             {
-                // Derivation 
-
-                //  Variable declaration:
-                //      D: target position (relative. Assume projectile source is stationary at origin to simplify calcs)
-                //      S: Projectile Speed
-                //      t: time till intercept
-                //      V: target velocity
-                //      A: target acceleration
-                //      u: Unit vector of the projectile velocity that has a valid intercept
-
-                //  For intercept, the following must be true:
-                //  D + Vt + At^2/2 = uSt
-
-                //  Note, however, that the projectile, which is travelling in a straight line (no gravity. We say is stationary, gravity is part of relative target acceleration),
-                //  that ||D + Vt + At^2/2|| = St
-                //  We take the property that square of magnitude == dot product with itself, and commutative/distributive dot product properties to get:
-                //  S^2t^2 = (D ○ D) + 2(D ○ V)t + (D ○ A)t^2 + (A ○ V)t^3 + (A ○ A)t^4/4 + (V ○ V)t^2
-                //  ((A ○ A) / 4) t^4 + (A ○ V) t^3 + ((V ○ V) + (D ○ A) - S^2) t^2 + 2(D ○ V)t + (D ○ D) = 0
-
-                // Solve quartic
-                double[] times = new double[4];
-                int numTimes = SolveQuartic(A.sqrMagnitude / 4, A.Dot(V), (V.sqrMagnitude + D.Dot(A) - (S * S)), 2 * D.Dot(V), D.sqrMagnitude, out times[0], out times[1], out times[2], out times[3]);
-
-                // Sort so faster collision is found first
-                System.Array.Sort(times);
-
-                // Plug quartic solutions into base equations
-                // There should never be more than 2 positive, real roots.
-                for (int i = 0; i < times.Length; ++i)
+                if (V.sqrMagnitude > 0.1)
                 {
-                    float t = (float)times[i];
-                    if (t < 0 || float.IsNaN(t) || float.IsInfinity(t) || float.IsNegativeInfinity(t))
-                        continue;
+                    // Derivation 
 
-                    if (t < bestTime)
+                    //  Variable declaration:
+                    //      D: target position (relative. Assume projectile source is stationary at origin to simplify calcs)
+                    //      S: Projectile Speed
+                    //      t: time till intercept
+                    //      V: target velocity
+                    //      A: target acceleration
+                    //      u: Unit vector of the projectile velocity that has a valid intercept
+
+                    //  For intercept, the following must be true:
+                    //  D + Vt + At^2/2 = uSt
+
+                    //  Note, however, that the projectile, which is travelling in a straight line (no gravity. We say is stationary, gravity is part of relative target acceleration),
+                    //  that ||D + Vt + At^2/2|| = St
+                    //  We take the property that square of magnitude == dot product with itself, and commutative/distributive dot product properties to get:
+                    //  S^2t^2 = (D ○ D) + 2(D ○ V)t + 2(D ○ A)t^2 + 2(A ○ V)t^3 + (A ○ A)t^4/4 + (V ○ V)t^2
+                    //  ((A ○ A) / 4) t^4 + (2/2)(A ○ V) t^3 + ((V ○ V) + (2/2)(D ○ A) - S^2) t^2 + 2(D ○ V)t + (D ○ D) = 0
+
+                    // Solve quartic
+                    double[] times = new double[4];
+                    int numTimes = SolveQuartic(A.sqrMagnitude / 4, A.Dot(V), (V.sqrMagnitude + D.Dot(A) - (S * S)), 2 * D.Dot(V), D.sqrMagnitude, out times[0], out times[1], out times[2], out times[3]);
+
+                    // Sort so faster collision is found first
+                    System.Array.Sort(times);
+
+                    // Plug quartic solutions into base equations
+                    // There should never be more than 2 positive, real roots.
+                    for (int i = 0; i < times.Length; ++i)
                     {
-                        bestTime = t;
+                        float t = (float)times[i];
+                        if (t < 0 || float.IsNaN(t) || float.IsInfinity(t) || float.IsNegativeInfinity(t))
+                            continue;
+
+                        if (t < bestTime)
+                        {
+                            bestTime = t;
+                        }
+                    }
+                }
+                else
+                {
+                    // A but no V
+                    // Derivation 
+
+                    //  Variable declaration:
+                    //      D: target position (relative. Assume projectile source is stationary at origin to simplify calcs)
+                    //      S: Projectile Speed
+                    //      t: time till intercept
+                    //      V: target velocity
+                    //      A: target acceleration
+                    //      u: Unit vector of the projectile velocity that has a valid intercept
+
+                    //  For intercept, the following must be true:
+                    //  D + At^2/2 = uSt
+
+                    //  Note, however, that the projectile, which is travelling in a straight line (no gravity. We say is stationary, gravity is part of relative target acceleration),
+                    //  that ||D + At^2/2|| = St
+                    //  We take the property that square of magnitude == dot product with itself, and commutative/distributive dot product properties to get:
+                    //  S^2t^2 = (D ○ D) + (2/2)(D ○ A)t^2 + (A ○ A)t^4/4
+                    //  ((A ○ A) / 4) t^4 + ((2/2)(D ○ A) - S^2) t^2 + (D ○ D) = 0
+
+                    // quadratic formula solve for t^2
+
+                    float a = A.sqrMagnitude / 4;
+                    float b = D.Dot(A) - (S * S);
+                    float c = D.sqrMagnitude;
+
+                    float determinant = (b * b) - (4 * a * c);
+                    if (determinant > 0)
+                    {
+                        float sqrt = Mathf.Sqrt(determinant);
+                        float temp1 = (-b - sqrt) / (2 * a);
+                        float temp2 = (sqrt - b) / (2 * a);
+                        if (temp1 < 0f)
+                        {
+                            if (temp2 >= 0f)
+                            {
+                                return Mathf.Sqrt(temp2);
+                            }
+                        }
+                        else if (temp2 < 0f)
+                        {
+                            return Mathf.Sqrt(temp1);
+                        }
+                        else
+                        {
+                            return Mathf.Sqrt(Mathf.Min(temp1, temp2));
+                        }
                     }
                 }
             }
             // Else, use simplified
-            else
+            else if (V.sqrMagnitude > 0.1f)
             {
                 // Derivation 
 
@@ -321,7 +375,10 @@ namespace WeaponAimMod.src
                     float temp2 = (sqrt - b) / (2 * a);
                     if (temp1 < 0f)
                     {
-                        return temp2;
+                        if (temp2 >= 0f)
+                        {
+                            return temp2;
+                        }
                     }
                     else if (temp2 < 0f)
                     {
@@ -332,6 +389,11 @@ namespace WeaponAimMod.src
                         return Mathf.Min(temp1, temp2);
                     }
                 }
+            }
+            // No V no A
+            else
+            {
+                return D.magnitude / S;
             }
 
             // Write out solutions

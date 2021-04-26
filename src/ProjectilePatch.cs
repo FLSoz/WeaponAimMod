@@ -10,16 +10,16 @@ namespace WeaponAimMod.src
 {
     public class ProjectilePatch
     {
-        public static FieldInfo m_TargetPosition = typeof(TargetAimer).GetField("m_TargetPosition", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        public static FieldInfo Target = typeof(TargetAimer).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).FirstOrDefault(field =>
+        public static readonly FieldInfo m_TargetPosition = typeof(TargetAimer).GetField("m_TargetPosition", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        public static readonly FieldInfo Target = typeof(TargetAimer).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).FirstOrDefault(field =>
                         field.CustomAttributes.Any(attr => attr.AttributeType == typeof(CompilerGeneratedAttribute)) &&
                         (field.DeclaringType == typeof(TargetAimer).GetProperty("Target").DeclaringType) &&
                         field.FieldType.IsAssignableFrom(typeof(TargetAimer).GetProperty("Target").PropertyType) &&
                         field.Name.StartsWith("<" + typeof(TargetAimer).GetProperty("Target").Name + ">")
                     );
-        public static FieldInfo m_Block = typeof(TargetAimer).GetField("m_Block", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        public static FieldInfo m_ChangeTargetTimeout = typeof(TargetAimer).GetField("m_ChangeTargetTimeout", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        public static FieldInfo m_ChangeTargetInteval = typeof(TargetAimer).GetField("m_ChangeTargetInteval", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        public static readonly FieldInfo m_Block = typeof(TargetAimer).GetField("m_Block", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        public static readonly FieldInfo m_ChangeTargetTimeout = typeof(TargetAimer).GetField("m_ChangeTargetTimeout", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        public static readonly FieldInfo m_ChangeTargetInteval = typeof(TargetAimer).GetField("m_ChangeTargetInteval", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
 
         // Target leading for weapons
@@ -33,8 +33,10 @@ namespace WeaponAimMod.src
                 {
                     TankBlock block = (TankBlock) ProjectilePatch.m_Block.GetValue(__instance);
                     Tank tank = (bool)(UnityEngine.Object)block ? block.tank : (Tank)null;
-                    FireData componentInParent1 = __instance.GetComponentInParent<FireData>();
+                    FireData fireData = __instance.GetComponentInParent<FireData>();
                     Vector3 AimPointVector = __instance.Target.GetAimPoint(block.trans.position);
+
+                    string name = block ? block.name : "UNKNOWN";
 
                     if (AimPointVector == null)
                     {
@@ -42,18 +44,25 @@ namespace WeaponAimMod.src
                     }
 
                     TimedFuseData timedFuse = __instance.GetComponentInParent<TimedFuseData>();
+
                     Vector3 relDist = AimPointVector - __instance.transform.position;
 
                     bool enemyWeapon = tank == null || !ManSpawn.IsPlayerTeam(tank.Team);
 
-                    if (((UnityEngine.Object)componentInParent1 != (UnityEngine.Object)null) && ((enemyWeapon && WeaponAimSettings.EnemyLead) || (!enemyWeapon && WeaponAimSettings.PlayerLead)) && !(componentInParent1 is FireDataShotgun) && componentInParent1.m_MuzzleVelocity > 0.0f)
+                    if (((UnityEngine.Object)fireData != (UnityEngine.Object)null) && ((enemyWeapon && WeaponAimSettings.EnemyLead) || (!enemyWeapon && WeaponAimSettings.PlayerLead)) && !(fireData is FireDataShotgun) && fireData.m_MuzzleVelocity > 0.0f)
                     {
-                        WeaponRound bulletPrefab = componentInParent1.m_BulletPrefab;
+                        WeaponRound bulletPrefab = fireData.m_BulletPrefab;
 
                         bool useGravity = false;
-                        if (bulletPrefab != null)
+                        if (bulletPrefab != null && bulletPrefab is Projectile projectile && projectile.rbody != null)
                         {
-                            useGravity = bulletPrefab.gameObject.GetComponent<Rigidbody>().useGravity;
+                            if (projectile is MissileProjectile missileProjectile)
+                            {
+                                useGravity = missileProjectile.rbody.useGravity || WeaponAimSettings.BallisticMissile;
+                            }
+                            else {
+                                useGravity = projectile.rbody.useGravity;
+                            }
                         }
 
                         Rigidbody rbodyTank = __instance.GetComponentInParent<Tank>().rbody;
@@ -61,7 +70,7 @@ namespace WeaponAimMod.src
                         Vector3 angularToggle = rbodyTank.angularVelocity;
                         Vector3 relativeVelocity = __instance.Target.rbody.velocity - (rbodyTank.velocity + angularToggle);
 
-                        float time = relDist.magnitude / componentInParent1.m_MuzzleVelocity;
+                        float time = relDist.magnitude / fireData.m_MuzzleVelocity;
                         Visible target = __instance.Target;
                         Vector3 relativeAcceleration = target.type == ObjectTypes.Vehicle ? TargetManager.GetAcceleration(target.tank) : Vector3.zero;
 
@@ -70,7 +79,7 @@ namespace WeaponAimMod.src
                             relativeAcceleration -= Physics.gravity;
                         }
 
-                        float exactTime = BallisticEquations.SolveBallisticArc(__instance.transform.position, componentInParent1.m_MuzzleVelocity, AimPointVector, relativeVelocity, relativeAcceleration);
+                        float exactTime = BallisticEquations.SolveBallisticArc(__instance.transform.position, fireData.m_MuzzleVelocity, AimPointVector, relativeVelocity, relativeAcceleration);
                         Vector3 adjIntercept = AimPointVector + (relativeVelocity * time);
                         if (exactTime != Mathf.Infinity)
                         {
@@ -90,7 +99,7 @@ namespace WeaponAimMod.src
                     {
                         if (timedFuse != null)
                         {
-                            timedFuse.m_FuseTime = relDist.magnitude / componentInParent1.m_MuzzleVelocity;
+                            timedFuse.m_FuseTime = relDist.magnitude / fireData.m_MuzzleVelocity;
                         }
                     }
                 }
@@ -102,17 +111,25 @@ namespace WeaponAimMod.src
         [HarmonyPatch("Fire")]
         public static class ProjectileFirePatch
         {
-            private static bool Prefix(ref Projectile __instance, FireData fireData)
+            private static readonly FieldInfo m_MaxBoosterLifetime = typeof(MissileProjectile).GetField("m_MaxBoosterLifetime", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            private static readonly FieldInfo m_LifeTime = typeof(Projectile).GetField("m_LifeTime", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            private static bool Prefix(ref Projectile __instance, FireData fireData, out float __state)
             {
+                __state = (float) m_LifeTime.GetValue(__instance);
+
                 // Do timed fuse setting
                 TimedFuseData timedFuse = fireData.GetComponentInParent<TimedFuseData>();
                 if (timedFuse != null)
                 {
-                    // Console.WriteLine("fuse timer found: " + timedFuse.m_FuseTime.ToString());
-                    FieldInfo m_LifeTime = typeof(Projectile).GetField("m_LifeTime", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                     m_LifeTime.SetValue(__instance, timedFuse.m_FuseTime + timedFuse.offset);
                 }
                 return true;
+            }
+
+            private static void Postfix(ref Projectile __instance, float __state)
+            {
+                m_LifeTime.SetValue(__instance, __state);
             }
         }
 
@@ -136,21 +153,22 @@ namespace WeaponAimMod.src
         [HarmonyPatch("OnPool")]
         public static class WeaponGunPatch
         {
+            private static readonly FieldInfo m_CannonBarrels = typeof(ModuleWeaponGun).GetField("m_CannonBarrels", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            private static readonly FieldInfo m_FiringData = typeof(ModuleWeaponGun).GetField("m_FiringData", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
             private static void Postfix(ref ModuleWeaponGun __instance)
             {
-                FieldInfo m_CannonBarrels = typeof(ModuleWeaponGun).GetField("m_CannonBarrels", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                FieldInfo m_FiringData = typeof(ModuleWeaponGun).GetField("m_FiringData", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                 CannonBarrel[] cannonBarrels = (CannonBarrel[])m_CannonBarrels.GetValue(__instance);
                 if (cannonBarrels != null)
                 {
                     foreach (CannonBarrel cannonBarrel in cannonBarrels)
                     {
-                        if (cannonBarrel.beamWeapon != null)
+                        if (cannonBarrel.beamWeapon)
                         {
-                            FireData fireData = __instance.GetComponent<FireData>();
+                            FireData fireData = (FireData) m_FiringData.GetValue(__instance);
                             if (fireData != null)
                             {
-                                fireData.m_MuzzleVelocity = 0.0f;
+                                fireData.m_MuzzleVelocity = 0f;
                             }
                             return;
                         }
@@ -167,15 +185,15 @@ namespace WeaponAimMod.src
         [HarmonyPatch("UpdateAutoAimBehaviour")]
         public static class PatchModuleWeapon
         {
-            public static FieldInfo m_TargetPosition = typeof(ModuleWeapon).GetField("m_TargetPosition", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            public static FieldInfo m_TargetPosition2 = typeof(TargetAimer).GetField("m_TargetPosition", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            public static FieldInfo m_WeaponComponent = typeof(ModuleWeapon).GetField("m_WeaponComponent", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            public static MethodInfo FiringData = typeof(ModuleWeaponGun).GetMethod("get_FiringData", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            public static readonly FieldInfo m_TargetPosition = typeof(ModuleWeapon).GetField("m_TargetPosition", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            public static readonly FieldInfo m_TargetPosition2 = typeof(TargetAimer).GetField("m_TargetPosition", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            public static readonly FieldInfo m_WeaponComponent = typeof(ModuleWeapon).GetField("m_WeaponComponent", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            public static readonly MethodInfo FiringData = typeof(ModuleWeaponGun).GetMethod("get_FiringData", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-            public static FieldInfo m_TargetAimer = typeof(ModuleWeapon).GetField("m_TargetAimer", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            // public static FieldInfo m_ChangeTargetInteval = typeof(ModuleWeapon).GetField("m_ChangeTargetInteval", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            public static FieldInfo m_SeekingProjectile = typeof(Projectile).GetField("m_SeekingProjectile", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            public static FieldInfo m_VisionConeAngle = typeof(SeekingProjectile).GetField("m_VisionConeAngle", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            public static readonly FieldInfo m_TargetAimer = typeof(ModuleWeapon).GetField("m_TargetAimer", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            // public static readonly FieldInfo m_ChangeTargetInteval = typeof(ModuleWeapon).GetField("m_ChangeTargetInteval", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            public static readonly FieldInfo m_SeekingProjectile = typeof(Projectile).GetField("m_SeekingProjectile", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            public static readonly FieldInfo m_VisionConeAngle = typeof(SeekingProjectile).GetField("m_VisionConeAngle", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
             public static void Postfix(ref ModuleWeapon __instance)
             {
