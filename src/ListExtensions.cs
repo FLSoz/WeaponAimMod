@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 
 namespace WeaponAimMod.src
 {
+    // Taken from https://www.growingwiththeweb.com/2013/01/a-list-extension-that-takes-lambda.html
+
     public static class ListExtensions
     {
         public static int BinarySearch<T>(this List<T> list,
