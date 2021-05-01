@@ -29,7 +29,7 @@ namespace WeaponAimMod.src
         {
             public static void Postfix(ref TargetAimer __instance)
             {
-                if (__instance.HasTarget && !Singleton.Manager<ManPauseGame>.inst.IsPaused)
+                if (__instance.HasTarget && __instance.Target.IsNotNull() && __instance.Target.tank != null && !Singleton.Manager<ManPauseGame>.inst.IsPaused)
                 {
                     TankBlock block = (TankBlock) ProjectilePatch.m_Block.GetValue(__instance);
                     Tank tank = (bool)(UnityEngine.Object)block ? block.tank : (Tank)null;
