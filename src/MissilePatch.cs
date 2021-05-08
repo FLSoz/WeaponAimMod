@@ -207,7 +207,6 @@ namespace WeaponAimMod.src
             }
         }
 
-
         // Add SmartMissile, tell it to go towards tank's current target
         [HarmonyPatch(typeof(Projectile))]
         [HarmonyPatch("Fire")]
@@ -251,28 +250,6 @@ namespace WeaponAimMod.src
                 return;
             }
         }
-
-        // Ballistic Missiles
-        /* [HarmonyPatch(typeof(MissileProjectile))]
-        [HarmonyPatch("ActivateBoosters")]
-        public static class BallisticMissilePatch
-        {
-            public static readonly FieldInfo m_RotationUpdater = typeof(Projectile).GetField("m_RotationUpdater", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            public static void Postfix(ref MissileProjectile __instance)
-            {
-                // If projectile is not magic bs, enable ballistics
-                // bool originalGravity = __instance.CanApplyGravity();
-                if (WeaponAimSettings.BallisticMissile)
-                {
-                    __instance.rbody.useGravity = true;
-                    SwitchableUpdater rotationUpdater = (SwitchableUpdater) m_RotationUpdater.GetValue(__instance);
-                    if (rotationUpdater)
-                    {
-                        rotationUpdater.enabled = true;
-                    }
-                }
-            }
-        } */
 
         [HarmonyPatch(typeof(MissileProjectile))]
         [HarmonyPatch("DeactivateBoosters")]

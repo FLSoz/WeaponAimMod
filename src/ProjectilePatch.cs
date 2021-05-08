@@ -34,23 +34,20 @@ namespace WeaponAimMod.src
                     TankBlock block = (TankBlock) ProjectilePatch.m_Block.GetValue(__instance);
                     Tank tank = (bool)(UnityEngine.Object)block ? block.tank : (Tank)null;
                     FireData fireData = __instance.GetComponentInParent<FireData>();
-                    Vector3 AimPointVector = __instance.Target.GetAimPoint(block.trans.position);
-
                     string name = block ? block.name : "UNKNOWN";
 
-                    if (AimPointVector == null)
-                    {
-                        AimPointVector = __instance.Target.rbody.transform.position;
-                    }
-
                     TimedFuseData timedFuse = __instance.GetComponentInParent<TimedFuseData>();
-
-                    Vector3 relDist = AimPointVector - __instance.transform.position;
 
                     bool enemyWeapon = tank == null || !ManSpawn.IsPlayerTeam(tank.Team);
 
                     if (((UnityEngine.Object)fireData != (UnityEngine.Object)null) && ((enemyWeapon && WeaponAimSettings.EnemyLead) || (!enemyWeapon && WeaponAimSettings.PlayerLead)) && !(fireData is FireDataShotgun) && fireData.m_MuzzleVelocity > 0.0f)
                     {
+                        Vector3 AimPointVector = __instance.Target.GetAimPoint(block.trans.position);
+                        if (AimPointVector == null)
+                        {
+                            AimPointVector = __instance.Target.rbody.transform.position;
+                        }
+                        Vector3 relDist = AimPointVector - __instance.transform.position;
                         WeaponRound bulletPrefab = fireData.m_BulletPrefab;
 
                         bool useGravity = false;
@@ -99,7 +96,7 @@ namespace WeaponAimMod.src
                     {
                         if (timedFuse != null)
                         {
-                            timedFuse.m_FuseTime = relDist.magnitude / fireData.m_MuzzleVelocity;
+                            timedFuse.m_FuseTime = 0.0f;
                         }
                     }
                 }
