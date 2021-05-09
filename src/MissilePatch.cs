@@ -92,7 +92,7 @@ namespace WeaponAimMod.src
                         // Only possible if using gravity
                         targetPosition += (V * estTime);
                         Vector3 vector = targetPosition - me.position;
-                        if (vector != Vector3.up && vector != Vector3.down)
+                        if (WeaponAimSettings.BallisticMissile && vector != Vector3.up && vector != Vector3.down)
                         {
                             float angle = Mathf.Atan(vector.y / Mathf.Sqrt(vector.x * vector.x + vector.z * vector.z));
                             Vector3 adjustedVector = new Vector3(vector.x, 0f, vector.z).normalized;
@@ -202,7 +202,7 @@ namespace WeaponAimMod.src
                     smartMissile.target = target;
                     smartMissile.time = Time.time;
                     smartMissile.position = targetPosition;
-                    smartMissile.velocity = target.rbody.velocity;
+                    smartMissile.velocity = target.rbody ? target.rbody.velocity : Vector3.zero;
                 }
             }
         }

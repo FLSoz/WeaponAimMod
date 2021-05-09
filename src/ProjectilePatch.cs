@@ -29,7 +29,8 @@ namespace WeaponAimMod.src
         {
             public static void Postfix(ref TargetAimer __instance)
             {
-                if (__instance.HasTarget && __instance.Target.IsNotNull() && __instance.Target.tank != null && !Singleton.Manager<ManPauseGame>.inst.IsPaused)
+                Visible target = __instance.Target;
+                if (__instance.HasTarget && target.IsNotNull() && !Singleton.Manager<ManPauseGame>.inst.IsPaused && ((target.type == ObjectTypes.Vehicle && target.tank.IsNotNull()) || (target.type == ObjectTypes.Block && target.block.IsNotNull())))
                 {
                     TankBlock block = (TankBlock) ProjectilePatch.m_Block.GetValue(__instance);
                     Tank tank = (bool)(UnityEngine.Object)block ? block.tank : (Tank)null;
@@ -42,11 +43,7 @@ namespace WeaponAimMod.src
 
                     if (((UnityEngine.Object)fireData != (UnityEngine.Object)null) && ((enemyWeapon && WeaponAimSettings.EnemyLead) || (!enemyWeapon && WeaponAimSettings.PlayerLead)) && !(fireData is FireDataShotgun) && fireData.m_MuzzleVelocity > 0.0f)
                     {
-                        Vector3 AimPointVector = __instance.Target.GetAimPoint(block.trans.position);
-                        if (AimPointVector == null)
-                        {
-                            AimPointVector = __instance.Target.rbody.transform.position;
-                        }
+                        Vector3 AimPointVector = (Vector3) ProjectilePatch.m_TargetPosition.GetValue(__instance);
                         Vector3 relDist = AimPointVector - __instance.transform.position;
                         WeaponRound bulletPrefab = fireData.m_BulletPrefab;
 
@@ -65,10 +62,9 @@ namespace WeaponAimMod.src
                         Rigidbody rbodyTank = __instance.GetComponentInParent<Tank>().rbody;
 
                         Vector3 angularToggle = rbodyTank.angularVelocity;
-                        Vector3 relativeVelocity = __instance.Target.rbody.velocity - (rbodyTank.velocity + angularToggle);
+                        Vector3 relativeVelocity = (__instance.Target.rbody ? __instance.Target.rbody.velocity : Vector3.zero) - (rbodyTank.velocity + angularToggle);
 
                         float time = relDist.magnitude / fireData.m_MuzzleVelocity;
-                        Visible target = __instance.Target;
                         Vector3 relativeAcceleration = target.type == ObjectTypes.Vehicle ? TargetManager.GetAcceleration(target.tank) : Vector3.zero;
 
                         if (useGravity)
