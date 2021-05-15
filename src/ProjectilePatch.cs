@@ -30,18 +30,18 @@ namespace WeaponAimMod.src
             public static void Postfix(ref TargetAimer __instance)
             {
                 Visible target = __instance.Target;
-                if (__instance.HasTarget && target.IsNotNull() && !Singleton.Manager<ManPauseGame>.inst.IsPaused && ((target.type == ObjectTypes.Vehicle && target.tank.IsNotNull()) || (target.type == ObjectTypes.Block && target.block.IsNotNull())))
+                FireData fireData = __instance.GetComponentInParent<FireData>();
+                if (fireData && __instance.HasTarget && target.IsNotNull() && !Singleton.Manager<ManPauseGame>.inst.IsPaused && ((target.type == ObjectTypes.Vehicle && target.tank.IsNotNull()) || (target.type == ObjectTypes.Block && target.block.IsNotNull())))
                 {
                     TankBlock block = (TankBlock) ProjectilePatch.m_Block.GetValue(__instance);
                     Tank tank = (bool)(UnityEngine.Object)block ? block.tank : (Tank)null;
-                    FireData fireData = __instance.GetComponentInParent<FireData>();
+                    
                     string name = block ? block.name : "UNKNOWN";
-
                     TimedFuseData timedFuse = __instance.GetComponentInParent<TimedFuseData>();
 
                     bool enemyWeapon = tank == null || !ManSpawn.IsPlayerTeam(tank.Team);
 
-                    if (((UnityEngine.Object)fireData != (UnityEngine.Object)null) && ((enemyWeapon && WeaponAimSettings.EnemyLead) || (!enemyWeapon && WeaponAimSettings.PlayerLead)) && !(fireData is FireDataShotgun) && fireData.m_MuzzleVelocity > 0.0f)
+                    if (((enemyWeapon && WeaponAimSettings.EnemyLead) || (!enemyWeapon && WeaponAimSettings.PlayerLead)) && !(fireData is FireDataShotgun) && fireData.m_MuzzleVelocity > 0.0f)
                     {
                         Vector3 AimPointVector = (Vector3) ProjectilePatch.m_TargetPosition.GetValue(__instance);
                         Vector3 relDist = AimPointVector - __instance.transform.position;

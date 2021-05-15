@@ -102,7 +102,8 @@ mkdir !modpath!
 )
 echo Copying to game
 set e=$(TargetDir)..\&gt;nul
-xcopy /S /Y /R "$(TargetFileName)" !modpath!</PostBuildEvent>
+xcopy /Y /R "$(TargetFileName)" "$(TargetDir)$(TargetName)"
+xcopy /S /Y /R "$(TargetDir)$(TargetName)" !modpath!</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

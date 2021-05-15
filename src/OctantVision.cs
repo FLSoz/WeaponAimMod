@@ -507,24 +507,43 @@ namespace WeaponAimMod.src
             }
         }
 
+
+        private static readonly FieldInfo TechVision_SearchEpicentre = typeof(TechVision).GetField("m_SearchEpicentre", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        private static readonly FieldInfo TechVision_SearchRadius = typeof(TechVision).GetField("m_SearchRadius", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        private static readonly MethodInfo TechVision_RecalculateSearchSphere = typeof(TechVision).GetMethod("RecalculateSearchSphere", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
         private void RecalculateSearchSphere()
         {
-            this.m_SearchEpicentre = Vector3.zero;
-            foreach (ModuleVision moduleVision in this.m_VisionModules)
+            Tank baseTech = base.Tech;
+            if (baseTech)
             {
-                this.m_SearchEpicentre += moduleVision.block.centreOfMassWorld;
+                TechVision vision = baseTech.Vision;
+                if (vision)
+                {
+                    TechVision_RecalculateSearchSphere.Invoke(vision, null);
+                    this.m_SearchEpicentre = (Vector3)TechVision_SearchEpicentre.GetValue(vision);
+                    this.m_SearchRadius = (float) TechVision_SearchRadius.GetValue(vision);
+                }
+                else
+                {
+                    this.m_SearchEpicentre = Vector3.zero;
+                    foreach (ModuleVision moduleVision in this.m_VisionModules)
+                    {
+                        this.m_SearchEpicentre += moduleVision.block.centreOfMassWorld;
+                    }
+                    if (this.m_VisionModules.Count > 1)
+                    {
+                        this.m_SearchEpicentre /= (float)this.m_VisionModules.Count;
+                    }
+                    this.m_SearchRadius = 0f;
+                    foreach (ModuleVision moduleVision2 in this.m_VisionModules)
+                    {
+                        float b = (moduleVision2.block.centreOfMassWorld - this.m_SearchEpicentre).magnitude + moduleVision2.Range;
+                        this.m_SearchRadius = Mathf.Max(this.m_SearchRadius, b);
+                    }
+                    this.m_SearchEpicentre = base.Tech.trans.InverseTransformPoint(this.m_SearchEpicentre);
+                }
             }
-            if (this.m_VisionModules.Count > 1)
-            {
-                this.m_SearchEpicentre /= (float)this.m_VisionModules.Count;
-            }
-            this.m_SearchRadius = 0f;
-            foreach (ModuleVision moduleVision2 in this.m_VisionModules)
-            {
-                float b = (moduleVision2.block.centreOfMassWorld - this.m_SearchEpicentre).magnitude + moduleVision2.Range;
-                this.m_SearchRadius = Mathf.Max(this.m_SearchRadius, b);
-            }
-            this.m_SearchEpicentre = base.Tech.trans.InverseTransformPoint(this.m_SearchEpicentre);
         }
 
         public void AddVision(ModuleVision vision)
@@ -569,6 +588,24 @@ namespace WeaponAimMod.src
         private void OnRecycle()
         {
             this.ClearVisibles();
+        }
+    }
+
+    [HarmonyPatch(typeof(TechVision), "RecalculateSearchSphere")]
+    public static class PatchLogSearchSphere
+    {
+        public static void Postfix(ref TechVision __instance)
+        {
+            Console.WriteLine($"RECALCULATE SEARCH SPHERE {__instance.Tech.name}");
+        }
+    }
+
+    [HarmonyPatch(typeof(TechVision), "RefreshState")]
+    public static class PatchLogRefreshState
+    {
+        public static void Postfix(ref TechVision __instance)
+        {
+            Console.WriteLine($"REFRESH STATE {__instance.Tech.name}");
         }
     }
 
@@ -809,6 +846,7 @@ namespace WeaponAimMod.src
         }
     }
 
+    // Mandate a maximum aim clamp of 10% when using octant vision
     [HarmonyPatch(typeof(GimbalAimer))]
     [HarmonyPatch("CalcAim")]
     public static class PatchAimClamp
