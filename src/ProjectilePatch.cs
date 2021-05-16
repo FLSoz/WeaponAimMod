@@ -29,72 +29,81 @@ namespace WeaponAimMod.src
         {
             public static void Postfix(ref TargetAimer __instance)
             {
-                Visible target = __instance.Target;
-                FireData fireData = __instance.GetComponentInParent<FireData>();
-                if (fireData != null && __instance.HasTarget && target.IsNotNull() && !Singleton.Manager<ManPauseGame>.inst.IsPaused && ((target.type == ObjectTypes.Vehicle && target.tank.IsNotNull()) || (target.type == ObjectTypes.Block && target.block.IsNotNull())))
+                try
                 {
-                    TankBlock block = (TankBlock) ProjectilePatch.m_Block.GetValue(__instance);
-                    Tank tank = (bool)(UnityEngine.Object)block ? block.tank : (Tank)null;
-                    
-                    string name = block ? block.name : "UNKNOWN";
-                    TimedFuseData timedFuse = __instance.GetComponentInParent<TimedFuseData>();
-
-                    bool enemyWeapon = tank == null || !ManSpawn.IsPlayerTeam(tank.Team);
-
-                    if (((enemyWeapon && WeaponAimSettings.EnemyLead) || (!enemyWeapon && WeaponAimSettings.PlayerLead)) && !(fireData is FireDataShotgun) && fireData.m_MuzzleVelocity > 0.0f)
+                    Visible target = __instance.Target;
+                    FireData fireData = __instance.GetComponentInParent<FireData>();
+                    if (fireData != null && __instance.HasTarget && target.IsNotNull() && !Singleton.Manager<ManPauseGame>.inst.IsPaused && ((target.type == ObjectTypes.Vehicle && target.tank.IsNotNull()) || (target.type == ObjectTypes.Block && target.block.IsNotNull())))
                     {
-                        Vector3 AimPointVector = (Vector3) ProjectilePatch.m_TargetPosition.GetValue(__instance);
-                        Vector3 relDist = AimPointVector - __instance.transform.position;
-                        WeaponRound bulletPrefab = fireData.m_BulletPrefab;
+                        TankBlock block = (TankBlock)ProjectilePatch.m_Block.GetValue(__instance);
+                        Tank tank = (bool)(UnityEngine.Object)block ? block.tank : (Tank)null;
 
-                        bool useGravity = false;
-                        if (bulletPrefab != null && bulletPrefab is Projectile projectile && projectile.rbody != null)
+                        string name = block ? block.name : "UNKNOWN";
+                        TimedFuseData timedFuse = __instance.GetComponentInParent<TimedFuseData>();
+
+                        bool enemyWeapon = tank == null || !ManSpawn.IsPlayerTeam(tank.Team);
+
+                        if (((enemyWeapon && WeaponAimSettings.EnemyLead) || (!enemyWeapon && WeaponAimSettings.PlayerLead)) && !(fireData is FireDataShotgun) && fireData.m_MuzzleVelocity > 0.0f)
                         {
-                            if (projectile is MissileProjectile missileProjectile)
+                            Vector3 AimPointVector = (Vector3)ProjectilePatch.m_TargetPosition.GetValue(__instance);
+                            Vector3 relDist = AimPointVector - __instance.transform.position;
+                            WeaponRound bulletPrefab = fireData.m_BulletPrefab;
+
+                            bool useGravity = false;
+                            if (bulletPrefab != null && bulletPrefab is Projectile projectile && projectile.rbody != null)
                             {
-                                useGravity = missileProjectile.rbody.useGravity || WeaponAimSettings.BallisticMissile;
+                                if (projectile is MissileProjectile missileProjectile)
+                                {
+                                    useGravity = missileProjectile.rbody.useGravity || WeaponAimSettings.BallisticMissile;
+                                }
+                                else
+                                {
+                                    useGravity = projectile.rbody.useGravity;
+                                }
                             }
-                            else {
-                                useGravity = projectile.rbody.useGravity;
+
+                            Rigidbody rbodyTank = __instance.GetComponentInParent<Tank>().rbody;
+
+                            Vector3 angularToggle = rbodyTank.angularVelocity;
+                            Vector3 relativeVelocity = (__instance.Target.rbody ? __instance.Target.rbody.velocity : Vector3.zero) - (rbodyTank.velocity + angularToggle);
+
+                            float time = relDist.magnitude / fireData.m_MuzzleVelocity;
+                            Vector3 relativeAcceleration = target.type == ObjectTypes.Vehicle ? TargetManager.GetAcceleration(target.tank) : Vector3.zero;
+
+                            if (useGravity)
+                            {
+                                relativeAcceleration -= Physics.gravity;
+                            }
+
+                            float exactTime = BallisticEquations.SolveBallisticArc(__instance.transform.position, fireData.m_MuzzleVelocity, AimPointVector, relativeVelocity, relativeAcceleration);
+                            Vector3 adjIntercept = AimPointVector + (relativeVelocity * time);
+                            if (exactTime != Mathf.Infinity)
+                            {
+                                time = exactTime;
+                                adjIntercept = AimPointVector + (relativeVelocity * time) + ((relativeAcceleration + (useGravity ? Physics.gravity : Vector3.zero)) / 2 * time * time);
+                            }
+
+                            if (timedFuse != null)
+                            {
+                                timedFuse.m_FuseTime = time;
+                            }
+
+                            ProjectilePatch.m_TargetPosition.SetValue(__instance, adjIntercept);
+                        }
+                        // Either disabled for enemy, or is a beam weapon
+                        else
+                        {
+                            if (timedFuse != null)
+                            {
+                                timedFuse.m_FuseTime = 0.0f;
                             }
                         }
-
-                        Rigidbody rbodyTank = __instance.GetComponentInParent<Tank>().rbody;
-
-                        Vector3 angularToggle = rbodyTank.angularVelocity;
-                        Vector3 relativeVelocity = (__instance.Target.rbody ? __instance.Target.rbody.velocity : Vector3.zero) - (rbodyTank.velocity + angularToggle);
-
-                        float time = relDist.magnitude / fireData.m_MuzzleVelocity;
-                        Vector3 relativeAcceleration = target.type == ObjectTypes.Vehicle ? TargetManager.GetAcceleration(target.tank) : Vector3.zero;
-
-                        if (useGravity)
-                        {
-                            relativeAcceleration -= Physics.gravity;
-                        }
-
-                        float exactTime = BallisticEquations.SolveBallisticArc(__instance.transform.position, fireData.m_MuzzleVelocity, AimPointVector, relativeVelocity, relativeAcceleration);
-                        Vector3 adjIntercept = AimPointVector + (relativeVelocity * time);
-                        if (exactTime != Mathf.Infinity)
-                        {
-                            time = exactTime;
-                            adjIntercept = AimPointVector + (relativeVelocity * time) + ((relativeAcceleration + (useGravity ? Physics.gravity : Vector3.zero)) / 2 * time * time);
-                        }
-
-                        if (timedFuse != null)
-                        {
-                            timedFuse.m_FuseTime = time;
-                        }
-
-                        ProjectilePatch.m_TargetPosition.SetValue(__instance, adjIntercept);
                     }
-                    // Either disabled for enemy, or is a beam weapon
-                    else
-                    {
-                        if (timedFuse != null)
-                        {
-                            timedFuse.m_FuseTime = 0.0f;
-                        }
-                    }
+                }
+                catch (NullReferenceException exception)
+                {
+                    Console.WriteLine("[WeaponAimMod] TargetAimer.UpdateTarget PATCH FAILED");
+                    Console.WriteLine(exception.Message);
                 }
             }
         }
