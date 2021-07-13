@@ -1,10 +1,11 @@
-﻿using Harmony;
+﻿using HarmonyLib;
 using UnityEngine;
 using System;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-
+using System.Diagnostics;
+using System.Text;
 
 namespace WeaponAimMod.src
 {
@@ -21,19 +22,121 @@ namespace WeaponAimMod.src
         public static readonly FieldInfo m_ChangeTargetTimeout = typeof(TargetAimer).GetField("m_ChangeTargetTimeout", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         public static readonly FieldInfo m_ChangeTargetInteval = typeof(TargetAimer).GetField("m_ChangeTargetInteval", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
+        public static string GetAllFootprints(Exception x)
+        {
+            var st = new StackTrace(x, true);
+            var frames = st.GetFrames();
+            var traceString = new StringBuilder();
+
+            foreach (var frame in frames)
+            {
+                if (frame.GetFileLineNumber() < 1)
+                    continue;
+
+                traceString.Append("File: " + frame.GetFileName());
+                traceString.Append(", Method:" + frame.GetMethod().Name);
+                traceString.Append(", LineNumber: " + frame.GetFileLineNumber());
+                traceString.Append("  -->  ");
+            }
+
+            return traceString.ToString();
+        }
 
         // Target leading for weapons
         [HarmonyPatch(typeof(TargetAimer))]
         [HarmonyPatch("UpdateTarget")]
         public static class TargetAimerPatch
         {
-            public static void Postfix(ref TargetAimer __instance)
+            public static Visible GetManualTarget(TankBlock block)
+            {
+                Tank tank = block ? block.tank : null;
+                TechWeapon techWeapon = tank ? tank.Weapons : null;
+                if (!techWeapon)
+                {
+                    return null;
+                }
+                return techWeapon.GetManualTarget();
+            }
+
+            private static readonly FieldInfo m_TargetPosition = typeof(TargetAimer).GetField("m_TargetPosition", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            private static readonly FieldInfo m_Block = typeof(TargetAimer).GetField("m_Block", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            private static readonly FieldInfo m_ChangeTargetTimeout = typeof(TargetAimer).GetField("m_ChangeTargetTimeout", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            private static readonly FieldInfo m_ChangeTargetInteval = typeof(TargetAimer).GetField("m_ChangeTargetInteval", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            [HarmonyPriority(999)]
+            public static bool Prefix(TargetAimer __instance)
+            {
+                try
+                {
+                    TankBlock ___m_Block = (TankBlock)m_Block.GetValue(__instance);
+                    float ___m_ChangeTargetTimeout = (float)m_ChangeTargetTimeout.GetValue(__instance);
+                    float ___m_ChangeTargetInteval = (float)m_ChangeTargetInteval.GetValue(__instance);
+
+                    if (!___m_Block || !___m_Block.tank)
+                    {
+                        __instance.Reset();
+                    }
+                    else
+                    {
+                        Visible manualTarget = GetManualTarget(___m_Block);
+                        if (manualTarget)
+                        {
+                            PatchAiming.Target.SetValue(__instance, manualTarget);
+                        }
+                        else if (__instance.HasTarget && (!__instance.Target.isActive || Time.time > ___m_ChangeTargetTimeout))
+                        {
+                            __instance.Reset();
+                        }
+                        if (__instance.Target == null && ___m_Block.tank.control.targetType != ObjectTypes.Null && (!__instance.HasTarget || !___m_Block.tank.Vision.CanSee(__instance.Target)))
+                        {
+                            if (___m_Block.tank.control.targetType == ObjectTypes.Vehicle)
+                            {
+                                PatchAiming.Target.SetValue(__instance, ___m_Block.tank.Vision.GetFirstVisibleTechIsEnemy(___m_Block.tank.Team));
+                            }
+                            else
+                            {
+                                PatchAiming.Target.SetValue(__instance, ___m_Block.tank.Vision.GetFirstVisible());
+                            }
+                            m_ChangeTargetTimeout.SetValue(__instance, Time.time + ___m_ChangeTargetInteval);
+                        }
+                        if (__instance.HasTarget && __instance.Target.gameObject.IsNotNull())
+                        {
+                            try
+                            {
+                                m_TargetPosition.SetValue(__instance, __instance.Target.GetAimPoint(___m_Block.trans.position));
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine(e);
+                                Console.WriteLine(__instance.Target.gameObject == null);
+                                Console.WriteLine($"Failed to get aim point for {__instance.Target.name}");
+
+                                m_TargetPosition.SetValue(__instance, __instance.Target.transform.position);
+
+                                throw new Exception("CAUGHT AN AIM POINT FAILURE");
+                            }
+                        }
+                        else
+                        {
+                            __instance.Reset();
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("[WeaponAimMod] TargetAimer.UpdateTarget PATCH FAILED");
+                    Console.WriteLine(e.ToString());
+                }
+                return false;
+            }
+
+            public static void Postfix(TargetAimer __instance)
             {
                 try
                 {
                     Visible target = __instance.Target;
                     FireData fireData = __instance.GetComponentInParent<FireData>();
-                    if (fireData != null && __instance.HasTarget && target.IsNotNull() && !Singleton.Manager<ManPauseGame>.inst.IsPaused && ((target.type == ObjectTypes.Vehicle && target.tank.IsNotNull()) || (target.type == ObjectTypes.Block && target.block.IsNotNull())))
+                    if (fireData != null && __instance.HasTarget && !Singleton.Manager<ManPauseGame>.inst.IsPaused && ((target.type == ObjectTypes.Vehicle && target.tank.IsNotNull()) || (target.type == ObjectTypes.Block && target.block.IsNotNull())))
                     {
                         TankBlock block = (TankBlock)ProjectilePatch.m_Block.GetValue(__instance);
                         Tank tank = (bool)(UnityEngine.Object)block ? block.tank : (Tank)null;
@@ -103,8 +206,27 @@ namespace WeaponAimMod.src
                 catch (NullReferenceException exception)
                 {
                     Console.WriteLine("[WeaponAimMod] TargetAimer.UpdateTarget PATCH FAILED");
-                    Console.WriteLine(exception.Message);
+                    Console.WriteLine(exception);
                 }
+                catch (Exception exception)
+                {
+                    Console.WriteLine("[WeaponAimMod] TargetAimer.Updatetarget PATCH CRITICAL FAILURE");
+                    Console.WriteLine(exception);
+                }
+            }
+
+            public static Exception Finalizer(TargetAimer __instance, Exception __exception)
+            {
+                if (__exception != null)
+                {
+                    Console.WriteLine("ERROR FROM UPDATE TARGET:\n" + __exception.ToString());
+                    Console.WriteLine($"Instance on object {__instance.name}");
+                    TankBlock block = (TankBlock)m_Block.GetValue(__instance);
+                    Console.WriteLine($"Instance on block {block.name}");
+                    string tankName = block.tank ? block.tank.name : "<NULL TANK>";
+                    Console.WriteLine($"Instance on tank {tankName}");
+                }
+                return null;
             }
         }
 
@@ -226,6 +348,15 @@ namespace WeaponAimMod.src
                         }
                     }
                 }
+            }
+
+            public static Exception Finalizer(Exception __exception)
+            {
+                if (__exception != null)
+                {
+                    Console.WriteLine("ERROR FROM UPDATEAUTOAIMBEHAVIOUR:\n" + __exception.ToString());
+                }
+                return null;
             }
         }
     }

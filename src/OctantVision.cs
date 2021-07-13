@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Reflection;
 using UnityEngine;
-using Harmony;
+using HarmonyLib;
 
 
 namespace WeaponAimMod.src
@@ -591,7 +591,6 @@ namespace WeaponAimMod.src
         }
     }
 
-    [HarmonyPatch(typeof(TechVision), "RecalculateSearchSphere")]
     public static class PatchLogSearchSphere
     {
         public static void Postfix(ref TechVision __instance)
@@ -600,7 +599,8 @@ namespace WeaponAimMod.src
         }
     }
 
-    [HarmonyPatch(typeof(TechVision), "RefreshState")]
+    [HarmonyPatch(typeof(TechVision))]
+    [HarmonyPatch("RefreshState")]
     public static class PatchLogRefreshState
     {
         public static void Postfix(ref TechVision __instance)
