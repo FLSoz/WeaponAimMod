@@ -10,8 +10,6 @@ namespace WeaponAimMod.src
 {
     public class Patches
     {
-        [HarmonyPatch(typeof(ManSpawn))]
-        [HarmonyPatch("Start")]
         public static class PatchTankStart
         {
             private static readonly FieldInfo m_TankRuntimePrefabs = typeof(ManSpawn).GetField("m_TankRuntimePrefabs", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
@@ -40,7 +38,7 @@ namespace WeaponAimMod.src
                 return;
             }
 
-            public static void Postfix(ref ManSpawn __instance)
+            public static void Postfix(ManSpawn __instance)
             {
                 object tank_prefabs = m_TankRuntimePrefabs.GetValue(__instance);
                 FieldInfo std_field = tank_prefabs.GetType().GetField("stdPrefab", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);

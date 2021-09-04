@@ -38,17 +38,8 @@ namespace WeaponAimMod.src
         // public static OptionToggle AutoSetFuse;
         public static OptionToggle OctantAim;
 
-        public static void Main()
+        public static void SetupConfig()
         {
-            // SozCore.IngressPoint.AddRequiredTechComponent(typeof(TargetManager));
-            Console.WriteLine("WeaponAimMod Startup");
-
-            // WeaponAimMod.src.WrappedDataHolder.unitGravity = Physics.gravity;
-            // WeaponAimMod.src.WrappedDataHolder.gravityMagnitude = Physics.gravity.magnitude;
-            // WeaponAimMod.src.WrappedDataHolder.unitGravity.Normalize();
-            var harmony = new Harmony("flsoz.ttmm.weaponaim.mod");
-            harmony.PatchAll(Assembly.GetExecutingAssembly());
-
             // mod Config
             Config = new ModConfig();
             Config.BindConfig<WeaponAimSettings>(null, "PlayerLead"); // Using BindConfig will set UseRef as true, changing some methods to work with the RefList.
@@ -59,7 +50,11 @@ namespace WeaponAimMod.src
             Config.BindConfig<WeaponAimSettings>(null, "BallisticMissile"); // If 'Setting2' was loaded from the config.json, it will apply the variable to the field.
             // Config.BindConfig<WeaponAimSettings>(null, "AutoSetFuse"); // If 'Setting2' was loaded from the config.json, it will apply the variable to the field.
             Config.BindConfig<WeaponAimSettings>(null, "OctantAim"); // If 'Setting2' was loaded from the config.json, it will apply the variable to the field.
+        }
 
+        public static void SetupUI()
+        {
+            Console.WriteLine("SETTING UP UI");
             // UI
             PlayerLead = new OptionToggle("Player leading", ModName, WeaponAimSettings.PlayerLead);
             PlayerLead.onValueSaved.AddListener(() => { WeaponAimSettings.PlayerLead = PlayerLead.SavedValue; Config.WriteConfigJsonFile(); });

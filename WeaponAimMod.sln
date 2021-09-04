@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31424.327
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WeaponAimMod", "WeaponAimMod.csproj", "{65925866-F773-46B0-93EE-E2898859040B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TechComponentInjector", "..\TechComponentInjector\TechComponentInjector\TechComponentInjector.csproj", "{50A84443-8E82-4060-B2CA-2AA653724548}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,8 +17,15 @@ Global
 		{65925866-F773-46B0-93EE-E2898859040B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{65925866-F773-46B0-93EE-E2898859040B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{65925866-F773-46B0-93EE-E2898859040B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{50A84443-8E82-4060-B2CA-2AA653724548}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{50A84443-8E82-4060-B2CA-2AA653724548}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{50A84443-8E82-4060-B2CA-2AA653724548}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{50A84443-8E82-4060-B2CA-2AA653724548}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {101E585E-629F-4AE6-BF38-35BF48BC68A9}
 	EndGlobalSection
 EndGlobal
