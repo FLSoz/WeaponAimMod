@@ -36,23 +36,29 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="0Nuterra.NativeOptions">
-      <HintPath>..\..\..\Steam\steamapps\common\TerraTech\QMods\0Nuterra.NativeOptions\0Nuterra.NativeOptions.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="AcModHelper.Config">
-      <HintPath>..\..\..\Steam\steamapps\common\TerraTech\QMods\ModHelper.Config\AcModHelper.Config.dll</HintPath>
-      <Private>False</Private>
+      <HintPath>..\Nuterra.NativeOptions\Nuterra.NativeOptions\bin\0Nuterra.NativeOptions\0Nuterra.NativeOptions.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>..\..\..\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="ConfigHelper">
+      <HintPath>..\ConfigHelper\bin\Debug\ConfigHelper.dll</HintPath>
+    </Reference>
     <Reference Include="DebugWrapper">
       <HintPath>..\..\..\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\DebugWrapper.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="NLog, Version=4.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
+      <HintPath>packages\NLog.4.7.11\lib\net45\NLog.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.ServiceModel" />
+    <Reference Include="System.Transactions" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -98,8 +104,15 @@
     <ProjectReference Include="..\TechComponentInjector\TechComponentInjector\TechComponentInjector.csproj">
       <Project>{50a84443-8e82-4060-b2ca-2aa653724548}</Project>
       <Name>TechComponentInjector</Name>
-      <Private>False</Private>
+      <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\TerraTechModLoader\LogManager\LogManager.csproj">
+      <Project>{911eed8c-e525-4596-84e7-11be2a401523}</Project>
+      <Name>LogManager</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
@@ -107,7 +120,8 @@
 
 @setlocal enableextensions enabledelayedexpansion
 
-set modpath="E:\Steam\steamapps\common\TerraTech\LocalMods\$(TargetName)"
+set modpath="E:\Steam\steamapps\common\TerraTech\LocalMods\Weapon Aim Mod"
+set unitypath="E:\Documents\Unity\Projects\TT Modding\Assets\Mods\Weapon Aim Mod\"
 
 for %25%25I in (*) do if not %25%25I == $(TargetFileName) (
 del "%25%25I"
@@ -117,10 +131,14 @@ if not exist !modpath! (
 echo Creating mod folder
 mkdir !modpath!
 )
+
 echo Copying to game
 set e=$(TargetDir)..\&gt;nul
-xcopy /Y /R "$(TargetFileName)" "$(TargetDir)$(TargetName)"
-xcopy /S /Y /R "$(TargetDir)$(TargetName)" !modpath!</PostBuildEvent>
+xcopy /S /Y /R "$(TargetFileName)" !modpath!
+
+echo Copying to Unity
+set e=$(TargetDir)..\&gt;nul
+xcopy /S /Y /R "$(TargetFileName)" !unitypath!</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

@@ -3,7 +3,7 @@ using System;
 using System.Linq;
 using HarmonyLib;
 using UnityEngine;
-using ModHelper.Config;
+using ModHelper;
 using Nuterra.NativeOptions;
 
 
@@ -55,30 +55,52 @@ namespace WeaponAimMod.src
         public static void SetupUI()
         {
             Console.WriteLine("SETTING UP UI");
+
             // UI
             PlayerLead = new OptionToggle("Player leading", ModName, WeaponAimSettings.PlayerLead);
-            PlayerLead.onValueSaved.AddListener(() => { WeaponAimSettings.PlayerLead = PlayerLead.SavedValue; Config.WriteConfigJsonFile(); });
+            PlayerLead.onValueSaved.AddListener(() => {
+                WeaponAimSettings.PlayerLead = PlayerLead.SavedValue;
+                Config.WriteConfigJsonFile();
+            });
 
             EnemyLead = new OptionToggle("Enemy leading", ModName, WeaponAimSettings.EnemyLead);
-            EnemyLead.onValueSaved.AddListener(() => { WeaponAimSettings.EnemyLead = EnemyLead.SavedValue; Config.WriteConfigJsonFile(); });
+            EnemyLead.onValueSaved.AddListener(() => {
+                WeaponAimSettings.EnemyLead = EnemyLead.SavedValue;
+                Config.WriteConfigJsonFile();
+            });
 
             EnemyMissileLead = new OptionToggle("Enemy-fired missile leading", ModName, WeaponAimSettings.EnemyMissileLead);
-            EnemyMissileLead.onValueSaved.AddListener(() => { WeaponAimSettings.EnemyMissileLead = EnemyMissileLead.SavedValue; Config.WriteConfigJsonFile(); });
+            EnemyMissileLead.onValueSaved.AddListener(() => {
+                WeaponAimSettings.EnemyMissileLead = EnemyMissileLead.SavedValue;
+                Config.WriteConfigJsonFile();
+            });
 
             PlayerMissileLead = new OptionToggle("Player-fired missile leading", ModName, WeaponAimSettings.PlayerMissileLead);
-            PlayerMissileLead.onValueSaved.AddListener(() => { WeaponAimSettings.PlayerMissileLead = PlayerMissileLead.SavedValue; Config.WriteConfigJsonFile(); });
+            PlayerMissileLead.onValueSaved.AddListener(() => {
+                WeaponAimSettings.PlayerMissileLead = PlayerMissileLead.SavedValue;
+                Config.WriteConfigJsonFile();
+            });
 
             SmartMissile = new OptionToggle("Smart missiles", ModName, WeaponAimSettings.SmartMissile);
-            SmartMissile.onValueSaved.AddListener(() => { WeaponAimSettings.SmartMissile = SmartMissile.SavedValue; Config.WriteConfigJsonFile(); });
+            SmartMissile.onValueSaved.AddListener(() => {
+                WeaponAimSettings.SmartMissile = SmartMissile.SavedValue;
+                Config.WriteConfigJsonFile();
+            });
 
             BallisticMissile = new OptionToggle("Ballistic missiles", ModName, WeaponAimSettings.BallisticMissile);
-            BallisticMissile.onValueSaved.AddListener(() => { WeaponAimSettings.BallisticMissile = BallisticMissile.SavedValue; Config.WriteConfigJsonFile(); });
+            BallisticMissile.onValueSaved.AddListener(() => {
+                WeaponAimSettings.BallisticMissile = BallisticMissile.SavedValue;
+                Config.WriteConfigJsonFile();
+            });
 
             // AutoSetFuse = new OptionToggle("All weapons timed fuse", ModName, WeaponAimSettings.AutoSetFuse);
             // AutoSetFuse.onValueSaved.AddListener(() => { WeaponAimSettings.AutoSetFuse = AutoSetFuse.SavedValue; Config.WriteConfigJsonFile(); });
 
             OctantAim = new OptionToggle("Independent Targeting", ModName, WeaponAimSettings.OctantAim);
-            OctantAim.onValueSaved.AddListener(() => { WeaponAimSettings.OctantAim = OctantAim.SavedValue; Config.WriteConfigJsonFile(); });
+            OctantAim.onValueSaved.AddListener(() => {
+                WeaponAimSettings.OctantAim = OctantAim.SavedValue;
+                Config.WriteConfigJsonFile();
+            });
         }
     }
 }

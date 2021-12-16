@@ -7,6 +7,9 @@ using TechComponentInjector;
 using System.Reflection;
 using WeaponAimMod.src;
 using HarmonyLib;
+using NLog;
+using LogManager;
+
 
 namespace WeaponAimMod
 {
@@ -15,6 +18,18 @@ namespace WeaponAimMod
         internal const string HarmonyID = "flsoz.ttmm.weaponaim.mod";
         internal static readonly Harmony harmony = new Harmony(HarmonyID);
         private static bool Inited = false;
+
+        internal static NLog.Logger logger = NLog.LogManager.GetCurrentClassLogger();
+        internal static void ConfigureLogger()
+        {
+            Manager.LogConfig config = new Manager.LogConfig
+            {
+                layout = "${longdate} | ${level:uppercase=true:padding=-5:alignmentOnTruncation=left} | ${logger:shortName=true} | ${message}  ${exception}",
+                keepOldFiles = false,
+                minLevel = LogLevel.Trace
+            };
+            Manager.RegisterLogger(logger, config);
+        }
 
         public static Type[] LoadBefore()
         {
@@ -25,6 +40,7 @@ namespace WeaponAimMod
         {
             if (!Inited)
             {
+                ConfigureLogger();
                 IngressPoint.SetupConfig();
                 IngressPoint.SetupUI();
                 Inited = true;
