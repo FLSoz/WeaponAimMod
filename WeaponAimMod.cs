@@ -31,7 +31,7 @@ namespace WeaponAimMod
             Manager.RegisterLogger(logger, config);
         }
 
-        public static Type[] LoadBefore()
+        public static Type[] LoadAfter()
         {
             return new Type[] { typeof(TechComponentInjector.TechComponentInjector) };
         }
