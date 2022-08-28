@@ -10,8 +10,7 @@ namespace WeaponAimMod.src
         private static readonly FieldInfo m_MaxBoosterLifetime = typeof(MissileProjectile).GetField("m_MaxBoosterLifetime", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
         // Target leading for missiles
-        [HarmonyPatch(typeof(SeekingProjectile))]
-        [HarmonyPatch("FixedUpdate")]
+        [HarmonyPatch(typeof(SeekingProjectile), "FixedUpdate")]
         public static class PatchMissiles
         {
             private static readonly FieldInfo m_MyProjectile = typeof(SeekingProjectile).GetField("m_MyProjectile", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
@@ -126,10 +125,11 @@ namespace WeaponAimMod.src
             }
 
             // Do missile targeting
+            [HarmonyPrefix]
             public static bool Prefix(ref SeekingProjectile __instance)
             {
                 Projectile projectile = (Projectile)m_MyProjectile.GetValue(__instance);
-                bool enemyMissile = projectile.Shooter == null || !!ManSpawn.IsPlayerTeam(projectile.Shooter.Team);
+                bool enemyMissile = projectile.Shooter == null || !ManSpawn.IsPlayerTeam(projectile.Shooter.Team);
                 bool reduced = false;
 
                 if (projectile is MissileProjectile missile && WeaponAimSettings.BallisticMissile)
@@ -192,6 +192,7 @@ namespace WeaponAimMod.src
             }
 
             // Update smart missile
+            [HarmonyPostfix]
             public static void Postfix(ref SeekingProjectile __instance)
             {
                 Visible target = (Visible)GetCurrentTarget.Invoke(__instance, null);
@@ -208,10 +209,10 @@ namespace WeaponAimMod.src
         }
 
         // Add SmartMissile, tell it to go towards tank's current target
-        [HarmonyPatch(typeof(Projectile))]
-        [HarmonyPatch("Fire")]
+        [HarmonyPatch(typeof(Projectile), "Fire")]
         public static class MissileFirePatch
         {
+            [HarmonyPostfix]
             private static void Postfix(ref Projectile __instance, bool seekingRounds)
             {
                 // If there's a SeekingProjectile, set SmartMissile
@@ -251,10 +252,10 @@ namespace WeaponAimMod.src
             }
         }
 
-        [HarmonyPatch(typeof(MissileProjectile))]
-        [HarmonyPatch("DeactivateBoosters")]
+        [HarmonyPatch(typeof(MissileProjectile), "DeactivateBoosters")]
         public static class BallisticMissilePatch2
         {
+            [HarmonyPostfix]
             public static void Postfix(ref MissileProjectile __instance)
             {
                 // If projectile is not magic bs, enable ballistics
@@ -273,10 +274,10 @@ namespace WeaponAimMod.src
                 }
             }
         }
-        [HarmonyPatch(typeof(MissileProjectile))]
-        [HarmonyPatch("OnRecycle")]
+        [HarmonyPatch(typeof(MissileProjectile), "OnRecycle")]
         public static class ClearBallisticToggle
         {
+            [HarmonyPostfix]
             public static void Postfix(ref MissileProjectile __instance)
             {
                 float current = (float)m_MaxBoosterLifetime.GetValue(__instance);
@@ -290,8 +291,7 @@ namespace WeaponAimMod.src
                 }
             }
         }
-        [HarmonyPatch(typeof(MissileProjectile))]
-        [HarmonyPatch("Fire")]
+        [HarmonyPatch(typeof(MissileProjectile), "Fire")]
         public static class BallisticMissileFirePatch
         {
             private static readonly FieldInfo m_MaxBoosterLifetime = typeof(MissileProjectile).GetField("m_MaxBoosterLifetime", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
@@ -304,6 +304,7 @@ namespace WeaponAimMod.src
                 public float adjustedBoosterLifetime;
             }
 
+            [HarmonyPrefix]
             public static bool Prefix(ref MissileProjectile __instance, FireData fireData, out State __state)
             {
                 float projectileLifetime = (float)m_LifeTime.GetValue((Projectile) __instance);
@@ -338,6 +339,7 @@ namespace WeaponAimMod.src
                 return true;
             }
 
+            [HarmonyPostfix]
             public static void Postfix(ref MissileProjectile __instance, State __state)
             {
                 m_LifeTime.SetValue((Projectile) __instance, __state.projectileLifetime);

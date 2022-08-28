@@ -246,7 +246,9 @@ namespace WeaponAimMod.src
                 TimedFuseData timedFuse = fireData.GetComponentInParent<TimedFuseData>();
                 if (timedFuse != null)
                 {
-                    m_LifeTime.SetValue(__instance, timedFuse.m_FuseTime + timedFuse.offset);
+                    float fuseTime = timedFuse.m_FuseTime + timedFuse.offset;
+                    WeaponAimMod.logger.Trace($"Setting fuse on {__instance.name} to ${fuseTime} seconds");
+                    m_LifeTime.SetValue(__instance, fuseTime);
                 }
                 return true;
             }
@@ -354,7 +356,7 @@ namespace WeaponAimMod.src
             {
                 if (__exception != null)
                 {
-                    Console.WriteLine("ERROR FROM UPDATEAUTOAIMBEHAVIOUR:\n" + __exception.ToString());
+                    WeaponAimMod.logger.Error($"Game FAILED at UpdateAutoAimBehaviour:\n{__exception}");
                 }
                 return null;
             }

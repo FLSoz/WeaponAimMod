@@ -92,7 +92,7 @@ namespace WeaponAimMod.src
                     }
                     else
                     {
-                        TimedFuseData timedFuse = __instance.GetComponentInParent<TimedFuseData>();
+                        TimedFuseData timedFuse = __instance?.GetComponentInParent<TimedFuseData>();
                         if (timedFuse && !timedFuse.always_present)
                         {
                             RemoveAutoSetFuse(timedFuse);

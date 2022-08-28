@@ -18,7 +18,7 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;_DEBUG</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -44,13 +44,11 @@
     </Reference>
     <Reference Include="ConfigHelper">
       <HintPath>..\ConfigHelper\bin\Debug\ConfigHelper.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="DebugWrapper">
       <HintPath>..\..\..\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\DebugWrapper.dll</HintPath>
       <Private>False</Private>
-    </Reference>
-    <Reference Include="NLog, Version=4.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
-      <HintPath>packages\NLog.4.7.11\lib\net45\NLog.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
@@ -73,6 +71,9 @@
       <HintPath>..\..\..\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>..\..\..\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.Networking">
       <HintPath>..\..\..\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\UnityEngine.Networking.dll</HintPath>
       <Private>False</Private>
@@ -81,8 +82,15 @@
       <HintPath>..\..\..\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="UnityEngine.TextCoreModule">
+      <HintPath>..\..\..\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\UnityEngine.TextCoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>..\..\..\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Logger.cs" />
     <Compile Include="src\AccurateExplosionSpawnPatch.cs" />
     <Compile Include="src\AutoSetFusePatch.cs" />
     <Compile Include="src\BallisticEquations.cs" />
@@ -92,6 +100,7 @@
     <Compile Include="src\Patches.cs" />
     <Compile Include="src\ProjectilePatch.cs" />
     <Compile Include="src\OctantVision.cs" />
+    <Compile Include="src\RuntimeDebugDraw.cs" />
     <Compile Include="src\SmartMissile.cs" />
     <Compile Include="src\TargetManager.cs" />
     <Compile Include="src\TimedFuseData.cs" />
@@ -106,13 +115,6 @@
       <Name>TechComponentInjector</Name>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\TerraTechModLoader\LogManager\LogManager.csproj">
-      <Project>{911eed8c-e525-4596-84e7-11be2a401523}</Project>
-      <Name>LogManager</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
@@ -126,9 +128,7 @@ echo !modpath!
 
 for %25%25I in (*) do (
   if not "%25%25I" =="$(TargetFileName)" (
-    if not "%25%25I" == "LogManager.dll" (
-      del "%25%25I"
-    )
+    del "%25%25I"
   )
 )
 
@@ -141,19 +141,8 @@ set e=$(TargetDir)..\&gt;nul
 
 echo Copying to game
 xcopy /S /Y /R "$(TargetFileName)" !modpath!
-if not "$(TargetFileName)" == "LogManager.dll" (
-  xcopy /S /Y /R "LogManager.dll" !modpath!
-)
-
 echo Copying to Unity
-xcopy /S /Y /R "$(TargetFileName)" !unitypath!
-if not "$(TargetFileName)" == "LogManager.dll" (
-  xcopy /S /Y /R "LogManager.dll" !unitypath!
-)
-
-if not "$(TargetFileName)" == "LogManager.dll" (
-  del "LogManager.dll"
-)</PostBuildEvent>
+xcopy /S /Y /R "$(TargetFileName)" !unitypath!</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

@@ -7,8 +7,6 @@ using TechComponentInjector;
 using System.Reflection;
 using WeaponAimMod.src;
 using HarmonyLib;
-using NLog;
-using LogManager;
 
 
 namespace WeaponAimMod
@@ -19,19 +17,16 @@ namespace WeaponAimMod
         internal static readonly Harmony harmony = new Harmony(HarmonyID);
         private static bool Inited = false;
 
-        internal static NLog.Logger logger = NLog.LogManager.GetCurrentClassLogger();
+        internal static bool DEBUG = false;
+
+        internal static Logger logger;
         internal static void ConfigureLogger()
         {
-            Manager.LogConfig config = new Manager.LogConfig
-            {
-                layout = "${longdate} | ${level:uppercase=true:padding=-5:alignmentOnTruncation=left} | ${logger:shortName=true} | ${message}  ${exception}",
-                keepOldFiles = false,
-                defaultMinLevel = LogLevel.Trace
-            };
-            Manager.RegisterLogger(logger, config);
+            logger = new Logger("WeaponAimMod");
+            logger.Info("Logger is setup");
         }
 
-        public static Type[] LoadAfter()
+        public static Type[] LoadBefore()
         {
             return new Type[] { typeof(TechComponentInjector.TechComponentInjector) };
         }

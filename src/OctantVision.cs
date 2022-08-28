@@ -559,6 +559,7 @@ namespace WeaponAimMod.src
 
         public void OnPool()
         {
+            WeaponAimMod.logger.Debug("OctantVision OnPool");
             for (int i = 0; i < 8; i++)
             {
                 if (this.m_ClosestOctantEnemy[i] == null)
@@ -578,6 +579,7 @@ namespace WeaponAimMod.src
 
         private void OnSpawn()
         {
+            WeaponAimMod.logger.Debug("OctantVision OnSpawn");
             this.ClearVisibles();
             this.m_VisionModules.Clear();
             this.m_SearchRadius = 0f;
@@ -587,6 +589,7 @@ namespace WeaponAimMod.src
 
         private void OnRecycle()
         {
+            WeaponAimMod.logger.Debug("OctantVision OnRecycle");
             this.ClearVisibles();
         }
     }
@@ -672,9 +675,33 @@ namespace WeaponAimMod.src
                         field.Name.StartsWith("<" + typeof(TargetAimer).GetProperty("Target").Name + ">")
                     );
         private static readonly FieldInfo m_CannonBarrels = typeof(ModuleWeaponGun).GetField("m_CannonBarrels", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        private static readonly FieldInfo m_ChangeTargetTimeout = AccessTools.Field(typeof(TargetAimer), "m_ChangeTargetTimeout");
 
+        private static void DrawTarget(TargetAimer __instance, TankBlock block)
+        {
+            if (!Singleton.Manager<ManPauseGame>.inst.IsPaused)
+            {
+                if (block && block.tank && block.tank.IsPlayer)
+                {
+                    Visible currentTarget = __instance.Target;
+                    if (currentTarget != null)
+                    {
+                        WeaponAimMod.logger.Debug($"TO DRAW TARGET BOX AROUND: {currentTarget.name}");
+                        TargetManager.DrawTarget(currentTarget.tank);
+                    }
+                }
+                else
+                {
+                    Visible currentTarget = __instance.Target;
+                    if (currentTarget != null)
+                    {
+                        // WeaponAimMod.logger.Trace("NOT A PLAYER: IGNORING");
+                    }
+                }
+            }
+        }
 
-        public static bool Prefix(ref TargetAimer __instance, ref float rotateSpeed)
+        public static bool Prefix(TargetAimer __instance, ref float rotateSpeed)
         {
             TankBlock block = (TankBlock)m_Block.GetValue(__instance);
 
@@ -711,6 +738,7 @@ namespace WeaponAimMod.src
                     // If we can aim, is all good - continue as normal (will do aim calculation for gimbals twice)
                     if (canAim)
                     {
+                        DrawTarget(__instance, block);
                         return true;
                     }
 
@@ -763,6 +791,7 @@ namespace WeaponAimMod.src
                             if (betterTarget)
                             {
                                 Target.SetValue(__instance, betterTarget);
+                                m_ChangeTargetTimeout.SetValue(__instance, Time.time + 0.5f); // Set target for at least next half second
                                 UpdateTarget.Invoke(__instance, null);
                             }
                         }
@@ -835,6 +864,7 @@ namespace WeaponAimMod.src
                                 if (betterTarget != null)
                                 {
                                     Target.SetValue(__instance, betterTarget);
+                                    m_ChangeTargetTimeout.SetValue(__instance, Time.time + 0.5f); // Set target for at least next half second
                                     UpdateTarget.Invoke(__instance, null);
                                 }
                             }
@@ -842,6 +872,7 @@ namespace WeaponAimMod.src
                     }
                 }
             }
+            DrawTarget(__instance, block);
             return true;
         }
     }
