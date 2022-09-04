@@ -3,7 +3,7 @@ using UnityEngine;
 using System.Reflection;
 using System;
 
-namespace WeaponAimMod.src
+namespace WeaponAimMod
 {
     public class MissilePatch
     {
@@ -48,13 +48,24 @@ namespace WeaponAimMod.src
             private static void CalculateAndApplyRotation(SeekingProjectile __instance, Projectile projectile, Visible target, Transform me, Vector3 targetPosition, Vector3 V, bool reduced, bool guess = false)
             {
                 float speed = projectile.rbody.velocity.magnitude;
+                SmartMissile smartMissile = __instance.GetComponent<SmartMissile>();
+                bool disableBallisticOverride = false;
+                if (smartMissile != null)
+                {
+                    disableBallisticOverride = smartMissile.disableBallistic;
+                    if (smartMissile.velocityOverride > 0.0f)
+                    {
+                        speed = smartMissile.velocityOverride;
+                    }
+                }
+
                 float estTime = (targetPosition - me.position).magnitude / speed;
                 float remainingTime = 0f;
                 float totalTime = 0f;
+                bool ballisticMissileActive = !disableBallisticOverride && WeaponAimSettings.BallisticMissile;
 
-                if (WeaponAimSettings.BallisticMissile)
+                if (ballisticMissileActive)
                 {
-                    SmartMissile smartMissile = __instance.GetComponent<SmartMissile>();
                     if (smartMissile)
                     {
                         remainingTime = smartMissile.expireTime - Time.time;
@@ -75,7 +86,7 @@ namespace WeaponAimMod.src
                 else
                 {
                     Vector3 A = !guess && target.type == ObjectTypes.Vehicle ? TargetManager.GetAcceleration(target.tank) : Vector3.zero;
-                    if (projectile.rbody.useGravity || WeaponAimSettings.BallisticMissile)
+                    if (projectile.rbody.useGravity || ballisticMissileActive)
                     {
                         A -= Physics.gravity * projectile.GetGravityScale();
                     }
@@ -91,7 +102,7 @@ namespace WeaponAimMod.src
                         // Only possible if using gravity
                         targetPosition += (V * estTime);
                         Vector3 vector = targetPosition - me.position;
-                        if (WeaponAimSettings.BallisticMissile && vector != Vector3.up && vector != Vector3.down)
+                        if (ballisticMissileActive && vector != Vector3.up && vector != Vector3.down)
                         {
                             float angle = Mathf.Atan(vector.y / Mathf.Sqrt(vector.x * vector.x + vector.z * vector.z));
                             Vector3 adjustedVector = new Vector3(vector.x, 0f, vector.z).normalized;
@@ -132,14 +143,17 @@ namespace WeaponAimMod.src
                 bool enemyMissile = projectile.Shooter == null || !ManSpawn.IsPlayerTeam(projectile.Shooter.Team);
                 bool reduced = false;
 
-                if (projectile is MissileProjectile missile && WeaponAimSettings.BallisticMissile)
+                // missile always have a SmartMissile on there, even if smart missiles is disabled
+                SmartMissile smartMissile = __instance.GetComponent<SmartMissile>();
+                bool ballisticMissileActive = !smartMissile.disableBallistic && WeaponAimSettings.BallisticMissile;
+                if (projectile is MissileProjectile missile && ballisticMissileActive)
                 {
                     float lifetime = (float)m_MaxBoosterLifetime.GetValue(missile);
                     reduced = lifetime < 0f;
                 }
 
-                // Only do leading if is a player, or enemy lead enabled
-                if ((enemyMissile && WeaponAimSettings.EnemyMissileLead) || (!enemyMissile && WeaponAimSettings.PlayerMissileLead)) {
+                // Only do leading if is a player, or enemy lead enabled, and missile hasn't specified we should disable target leading
+                if (!smartMissile.disableLead && ((enemyMissile && WeaponAimSettings.EnemyMissileLead) || (!enemyMissile && WeaponAimSettings.PlayerMissileLead))) {
                     Visible target = (Visible)GetCurrentTarget.Invoke(__instance, null);
                     Transform me = (Transform)m_MyTransform.GetValue(__instance);
 
@@ -147,7 +161,7 @@ namespace WeaponAimMod.src
                     if (target.IsNotNull())
                     {
                         Vector3 targetPosition = (Vector3)GetTargetAimPosition.Invoke(__instance, null);
-                        if (target.rbody != null && (target.rbody.velocity.magnitude > 1f || WeaponAimSettings.BallisticMissile))
+                        if (target.rbody != null && (target.rbody.velocity.magnitude > 1f || ballisticMissileActive))
                         {
                             CalculateAndApplyRotation(__instance, projectile, target, me, targetPosition, target.rbody.velocity, reduced);
                         }
@@ -160,11 +174,10 @@ namespace WeaponAimMod.src
                     // If no target currently visible, steer towards last known position of any target
                     else if (WeaponAimSettings.SmartMissile)
                     {
-                        SmartMissile smartMissile = __instance.GetComponent<SmartMissile>();
                         if (smartMissile != null && smartMissile.target != null)
                         {
                             Vector3 targetPosition = smartMissile.position + (Time.time - smartMissile.time) * smartMissile.velocity;
-                            if (smartMissile.velocity.magnitude > 1f || WeaponAimSettings.BallisticMissile)
+                            if (smartMissile.velocity.magnitude > 1f || ballisticMissileActive)
                             {
                                 CalculateAndApplyRotation(__instance, projectile, smartMissile.target, me, targetPosition, smartMissile.velocity, reduced, true);
                             }
@@ -179,7 +192,6 @@ namespace WeaponAimMod.src
                 // If no lead, but smart missiles selected - rotate towards that
                 else if (WeaponAimSettings.SmartMissile)
                 {
-                    SmartMissile smartMissile = __instance.GetComponent<SmartMissile>();
                     if (smartMissile != null && smartMissile.target != null)
                     {
                         Transform me = (Transform)m_MyTransform.GetValue(__instance);
@@ -223,6 +235,8 @@ namespace WeaponAimMod.src
                     if (smartMissile == null)
                     {
                         smartMissile = __instance.gameObject.AddComponent<SmartMissile>();
+                        smartMissile.disableLead = false;
+                        smartMissile.velocityOverride = 0.0f;
                     }
 
                     Tank shooter = __instance.Shooter;
@@ -241,7 +255,14 @@ namespace WeaponAimMod.src
                         smartMissile.target = target;
                         smartMissile.time = Time.time;
                         smartMissile.position = target.centrePosition;
-                        smartMissile.velocity = target.rbody.velocity;
+                        if (smartMissile.velocityOverride > 0.0f)
+                        {
+                            smartMissile.velocity = target.rbody.velocity.normalized * smartMissile.velocityOverride;
+                        }
+                        else
+                        {
+                            smartMissile.velocity = target.rbody.velocity;
+                        }
                     }
                     else
                     {
@@ -258,9 +279,15 @@ namespace WeaponAimMod.src
             [HarmonyPostfix]
             public static void Postfix(ref MissileProjectile __instance)
             {
+                SmartMissile smartMissile = __instance.GetComponent<SmartMissile>();
+                bool ballisticMissileActive = WeaponAimSettings.BallisticMissile;
+                if (ballisticMissileActive && smartMissile != null)
+                {
+                    ballisticMissileActive = !smartMissile.disableBallistic;
+                }
                 // If projectile is not magic bs, enable ballistics
                 // bool originalGravity = __instance.CanApplyGravity();
-                if (WeaponAimSettings.BallisticMissile)
+                if (ballisticMissileActive)
                 {
                     float current = (float) m_MaxBoosterLifetime.GetValue(__instance);
                     if (current > 0f)
@@ -274,6 +301,7 @@ namespace WeaponAimMod.src
                 }
             }
         }
+
         [HarmonyPatch(typeof(MissileProjectile), "OnRecycle")]
         public static class ClearBallisticToggle
         {
@@ -302,6 +330,7 @@ namespace WeaponAimMod.src
                 public float projectileLifetime;
                 public float boosterLifetime;
                 public float adjustedBoosterLifetime;
+                public SmartMissile smartMissile;
             }
 
             [HarmonyPrefix]
@@ -311,8 +340,15 @@ namespace WeaponAimMod.src
                 float boosterLifetime = (float)m_MaxBoosterLifetime.GetValue(__instance);
                 float adjustedBoosterLifetime = boosterLifetime;
 
+                SmartMissile smartMissile = __instance.GetComponent<SmartMissile>();
+                bool disableBallisticOverride = false;
+                if (smartMissile)
+                {
+                    disableBallisticOverride = smartMissile.disableBallistic;
+                }
+
                 // Do timed fuse setting
-                if (WeaponAimSettings.BallisticMissile)
+                if (!disableBallisticOverride && WeaponAimSettings.BallisticMissile)
                 {
                     m_LifeTime.SetValue((Projectile) __instance, 0f);
                     if (adjustedBoosterLifetime == 0f)
@@ -334,7 +370,8 @@ namespace WeaponAimMod.src
                 {
                     projectileLifetime = projectileLifetime,
                     boosterLifetime = boosterLifetime,
-                    adjustedBoosterLifetime = adjustedBoosterLifetime
+                    adjustedBoosterLifetime = adjustedBoosterLifetime,
+                    smartMissile = smartMissile
                 };
                 return true;
             }
@@ -345,7 +382,7 @@ namespace WeaponAimMod.src
                 m_LifeTime.SetValue((Projectile) __instance, __state.projectileLifetime);
                 m_MaxBoosterLifetime.SetValue(__instance, __state.boosterLifetime);
 
-                SmartMissile smartMissile = __instance.GetComponent<SmartMissile>();
+                SmartMissile smartMissile = __state.smartMissile;
                 if (smartMissile)
                 {
                     smartMissile.expireTime = Time.time + __state.adjustedBoosterLifetime;

@@ -8,7 +8,7 @@ using UnityEngine;
 using HarmonyLib;
 
 
-namespace WeaponAimMod.src
+namespace WeaponAimMod
 {
     public class OctantVision : TechComponent
     {

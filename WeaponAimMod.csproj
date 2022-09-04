@@ -97,6 +97,7 @@
     <Compile Include="src\IngressPoint.cs" />
     <Compile Include="src\ListExtensions.cs" />
     <Compile Include="src\MissilePatch.cs" />
+    <Compile Include="src\ModuleWeaponAimHelper.cs" />
     <Compile Include="src\Patches.cs" />
     <Compile Include="src\ProjectilePatch.cs" />
     <Compile Include="src\OctantVision.cs" />
@@ -110,6 +111,10 @@
     <Folder Include="Properties\" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\BlockChangePatcher\BlockChangePatcher.csproj">
+      <Project>{251b510b-9656-4b9e-846a-d3508b618f14}</Project>
+      <Name>BlockChangePatcher</Name>
+    </ProjectReference>
     <ProjectReference Include="..\TechComponentInjector\TechComponentInjector\TechComponentInjector.csproj">
       <Project>{50a84443-8e82-4060-b2ca-2aa653724548}</Project>
       <Name>TechComponentInjector</Name>

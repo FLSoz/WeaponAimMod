@@ -7,7 +7,7 @@ using UnityEngine;
 using RuntimeDebugDraw;
 
 
-namespace WeaponAimMod.src
+namespace WeaponAimMod
 {
     [RequireComponent(typeof(Tank))]
     public class TargetManager : TechComponent

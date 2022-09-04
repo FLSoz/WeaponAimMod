@@ -7,7 +7,7 @@ using ModHelper;
 using Nuterra.NativeOptions;
 
 
-namespace WeaponAimMod.src
+namespace WeaponAimMod
 {
     // Do the lead patch
     internal class WeaponAimSettings

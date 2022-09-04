@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WeaponAimMod.src
+namespace WeaponAimMod
 {
     // Taken from https://www.growingwiththeweb.com/2013/01/a-list-extension-that-takes-lambda.html
 

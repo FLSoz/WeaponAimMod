@@ -2,7 +2,7 @@
 using UnityEngine;
 using System.Reflection;
 
-namespace WeaponAimMod.src
+namespace WeaponAimMod
 {
     public class AccurateExplosionSpawnPatch
     {

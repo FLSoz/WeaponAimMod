@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-namespace WeaponAimMod.src
+namespace WeaponAimMod
 {
     [RequireComponent(typeof(SeekingProjectile))]
     public class SmartMissile : MonoBehaviour
@@ -17,5 +17,9 @@ namespace WeaponAimMod.src
         public Vector3 velocity;
         public Visible target;
         public bool finalCorrection;
+
+        public bool disableLead;
+        public float velocityOverride;
+        public bool disableBallistic;
     }
 }
