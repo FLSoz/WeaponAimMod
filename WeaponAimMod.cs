@@ -16,7 +16,7 @@ namespace WeaponAimMod
         internal static readonly Harmony harmony = new Harmony(HarmonyID);
         private static bool Inited = false;
 
-        internal static bool DEBUG = false;
+        internal static bool DEBUG = true;
 
         internal static Logger logger;
         internal static void ConfigureLogger()
@@ -34,7 +34,6 @@ namespace WeaponAimMod
 
         internal static Change change;
 
-        private static readonly FieldInfo m_CannonBarrels = AccessTools.Field(typeof(ModuleWeaponGun), "m_CannonBarrels");
         private class WeaponConditional : CustomConditional
         {
             public override bool Validate(BlockMetadata blockData)
@@ -87,7 +86,7 @@ namespace WeaponAimMod
                     {
                         logger.Debug($"FireData present");
                         // no leading for beam weapons
-                        CannonBarrel[] cannonBarrels = (CannonBarrel[])m_CannonBarrels.GetValue(moduleWeaponGun);
+                        CannonBarrel[] cannonBarrels = target.GetComponentsInChildren<CannonBarrel>(true);
                         if (cannonBarrels != null)
                         {
                             foreach (CannonBarrel cannonBarrel in cannonBarrels)
@@ -186,12 +185,112 @@ namespace WeaponAimMod
                 }
                 averageOffset /= cannonBarrels.Length;
 
-                helper.barrelOffset = averageOffset;
+                helper.barrelLength = averageOffset.z;
+
+                if (helper.gimbalOffset == Vector3.zero)
+                {
+                    List<GimbalAimer> aimers = new List<GimbalAimer>();
+                    Queue<Transform> frontier = new Queue<Transform>();
+                    foreach (Transform child in editablePrefab)
+                    {
+                        frontier.Enqueue(child);
+                    }
+                    while (frontier.Count > 0)
+                    {
+                        Transform curr = frontier.Dequeue();
+                        GimbalAimer aimer = curr.GetComponent<GimbalAimer>();
+                        if (aimer != null)
+                        {
+                            aimers.Add(aimer);
+                        }
+                        else
+                        {
+                            foreach (Transform child in curr)
+                            {
+                                frontier.Enqueue(child);
+                            }
+                        }
+                    }
+
+                    GimbalAimer.AxisConstraint firstAxis = GimbalAimer.AxisConstraint.Free;
+                    if (aimers.Count > 0)
+                    {
+                        firstAxis = aimers[0].rotationAxis;
+                    }
+                    bool matchingAxis = true;
+                    foreach (GimbalAimer aimer in aimers)
+                    {
+                        helper.gimbalOffset += editablePrefab.InverseTransformPoint(aimer.transform.position);
+                        if (firstAxis != aimer.rotationAxis)
+                        {
+                            matchingAxis = false;
+                        }
+                    }
+                    if (aimers.Count > 0)
+                    {
+                        helper.gimbalOffset /= aimers.Count;
+
+                        if (matchingAxis)
+                        {
+                            helper.firstAxis = firstAxis;
+
+                            List<GimbalAimer> secondAimers = new List<GimbalAimer>();
+                            GimbalAimer.AxisConstraint secondAxis = GimbalAimer.AxisConstraint.Free;
+                            foreach (GimbalAimer aimer in aimers)
+                            {
+                                frontier.Enqueue(aimer.transform);
+                            }
+                            while (frontier.Count > 0)
+                            {
+                                Transform curr = frontier.Dequeue();
+                                GimbalAimer aimer = curr.GetComponent<GimbalAimer>();
+                                if (aimer != null && aimer.rotationAxis != firstAxis)
+                                {
+                                    secondAimers.Add(aimer);
+                                }
+                                else
+                                {
+                                    foreach (Transform child in curr)
+                                    {
+                                        frontier.Enqueue(child);
+                                    }
+                                }
+                            }
+                            if (secondAimers.Count > 0)
+                            {
+                                secondAxis = secondAimers[0].rotationAxis;
+                            }
+                            foreach (GimbalAimer aimer in secondAimers)
+                            {
+                                helper.intermediateGimbalOffset += (editablePrefab.InverseTransformPoint(aimer.transform.position) - helper.gimbalOffset);
+                                if (secondAxis != aimer.rotationAxis)
+                                {
+                                    matchingAxis = false;
+                                }
+                            }
+                            if (secondAimers.Count > 0)
+                            {
+                                helper.intermediateGimbalOffset /= secondAimers.Count;
+                            }
+
+                            if (matchingAxis)
+                            {
+                                // we have successfully gotten both gimbal axes
+                                helper.secondAxis = secondAxis;
+                            }
+                        }
+                    }
+                }
             }
 
             FireData fireData = editablePrefab.gameObject.GetComponent<FireData>();
             if (fireData.m_BulletPrefab != null && fireData.m_BulletPrefab is Projectile projectile)
             {
+                Rigidbody rbody = projectile.GetComponent<Rigidbody>();
+                if (rbody != null) {
+                    helper.useGravity = rbody.useGravity;
+                }
+
                 SeekingProjectile seekingProjectile = projectile.GetComponent<SeekingProjectile>();
                 if (seekingProjectile != null)
                 {

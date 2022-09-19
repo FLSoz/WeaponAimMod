@@ -22,10 +22,6 @@ namespace WeaponAimMod
         private const int windowSize = 10;
         private Vector3 windowAcceleration;
 
-        private LineRenderer trajectoryRenderer;
-        private const int predictionLength = 10;
-        private const float predictionSeconds = 5.0f;
-
         public Vector3 Acceleration {
             get {
                 return this.currentWindow == 0 ? Vector3.zero : this.windowAcceleration / this.currentWindow;
@@ -45,8 +41,14 @@ namespace WeaponAimMod
             return Vector3.zero;
         }
 
+#if DEBUG
+        private LineRenderer trajectoryRenderer;
+        private const int predictionLength = 10;
+        private const float predictionSeconds = 5.0f;
+
         public static void DrawTarget(Tank tank)
         {
+            /*
             if (WeaponAimMod.DEBUG && tank != null)
             {
                 TargetManager targetManager = tank.GetComponentInParent<TargetManager>();
@@ -55,7 +57,7 @@ namespace WeaponAimMod
                     targetManager.SetDrawTarget();
                     return;
                 }
-            }
+            } */
         }
 
         internal bool ToDrawTarget = false;
@@ -70,26 +72,58 @@ namespace WeaponAimMod
             WeaponAimMod.logger.Debug($"DRAWING TARGET BOX AROUND {this.Tech.name}");
             Bounds bounds = this.Tech.blockBounds;
             Vector3 center = this.Tech.boundsCentreWorld;
+
+            DrawBox(center, bounds, Color.red);
+        }
+
+
+        internal static void DrawBox(Vector3 center, Bounds bounds, Color color)
+        {
             float x = bounds.extents.x;
             float y = bounds.extents.y;
             float z = bounds.extents.z;
             // draw the 12 edges
             // z (forwards)
-            Draw.DrawLine(center + new Vector3(x, y, z), center + new Vector3(x, y, -z), Color.red);
-            Draw.DrawLine(center + new Vector3(-x, y, z), center + new Vector3(-x, y, -z), Color.red);
-            Draw.DrawLine(center + new Vector3(x, -y, z), center + new Vector3(x, -y, -z), Color.red);
-            Draw.DrawLine(center + new Vector3(-x, -y, z), center + new Vector3(-x, -y, -z), Color.red);
+            Draw.DrawLine(center + new Vector3(x, y, z), center + new Vector3(x, y, -z), color);
+            Draw.DrawLine(center + new Vector3(-x, y, z), center + new Vector3(-x, y, -z), color);
+            Draw.DrawLine(center + new Vector3(x, -y, z), center + new Vector3(x, -y, -z), color);
+            Draw.DrawLine(center + new Vector3(-x, -y, z), center + new Vector3(-x, -y, -z), color);
             // y (verticals)
-            Draw.DrawLine(center + new Vector3(x, y, z), center + new Vector3(x, -y, z), Color.red);
-            Draw.DrawLine(center + new Vector3(-x, y, z), center + new Vector3(-x, -y, z), Color.red);
-            Draw.DrawLine(center + new Vector3(x, y, -z), center + new Vector3(x, -y, -z), Color.red);
-            Draw.DrawLine(center + new Vector3(-x, y, -z), center + new Vector3(-x, -y, -z), Color.red);
+            Draw.DrawLine(center + new Vector3(x, y, z), center + new Vector3(x, -y, z), color);
+            Draw.DrawLine(center + new Vector3(-x, y, z), center + new Vector3(-x, -y, z), color);
+            Draw.DrawLine(center + new Vector3(x, y, -z), center + new Vector3(x, -y, -z), color);
+            Draw.DrawLine(center + new Vector3(-x, y, -z), center + new Vector3(-x, -y, -z), color);
             // x (right)
-            Draw.DrawLine(center + new Vector3(x, y, z), center + new Vector3(-x, y, z), Color.red);
-            Draw.DrawLine(center + new Vector3(x, -y, z), center + new Vector3(-x, -y, z), Color.red);
-            Draw.DrawLine(center + new Vector3(x, y, -z), center + new Vector3(-x, y, -z), Color.red);
-            Draw.DrawLine(center + new Vector3(x, -y, -z), center + new Vector3(-x, -y, -z), Color.red);
+            Draw.DrawLine(center + new Vector3(x, y, z), center + new Vector3(-x, y, z), color);
+            Draw.DrawLine(center + new Vector3(x, -y, z), center + new Vector3(-x, -y, z), color);
+            Draw.DrawLine(center + new Vector3(x, y, -z), center + new Vector3(-x, y, -z), color);
+            Draw.DrawLine(center + new Vector3(x, -y, -z), center + new Vector3(-x, -y, -z), color);
         }
+
+        private void OnUpdate()
+        {
+            if (this.ToDrawTarget)
+            {
+                this.ToDrawTarget = false;
+                this.DrawTarget();
+            }
+        }
+        
+        private Vector3[] GetTrajectoryPrediction()
+        {
+            Vector3[] result = new Vector3[predictionLength];
+            for (int i = 0; i < predictionLength; i++)
+            {
+                float frameTime = i * (predictionSeconds / predictionLength);
+                Vector3 velocity = this.rbody.velocity;
+                Vector3 acceleration = this.Acceleration;
+                result[i] = this.rbody.position + (velocity * frameTime) + (acceleration * frameTime * frameTime / 2);
+            }
+            return result;
+        }
+
+        private bool PredictionEnabled = true;
+#endif
 
         private void FixedUpdate()
         {
@@ -132,6 +166,7 @@ namespace WeaponAimMod
                     {
                         this.index = 0;
                     }
+#if DEBUG
                     WeaponAimMod.logger.Trace("Drawing debug line");
 
                     if (WeaponAimMod.DEBUG && !this.Tech.IsPlayer)
@@ -146,6 +181,7 @@ namespace WeaponAimMod
                         this.trajectoryRenderer.enabled = false;
                     }
                     WeaponAimMod.logger.Trace("Drew debug line");
+#endif
                 }
                 else
                 {
@@ -155,30 +191,6 @@ namespace WeaponAimMod
                 }
             }
         }
-
-        private void OnUpdate()
-        {
-            if (this.ToDrawTarget)
-            {
-                this.ToDrawTarget = false;
-                this.DrawTarget();
-            }
-        }
-        
-        private Vector3[] GetTrajectoryPrediction()
-        {
-            Vector3[] result = new Vector3[predictionLength];
-            for (int i = 0; i < predictionLength; i++)
-            {
-                float frameTime = i * (predictionSeconds / predictionLength);
-                Vector3 velocity = this.rbody.velocity;
-                Vector3 acceleration = this.Acceleration;
-                result[i] = this.rbody.position + (velocity * frameTime) + (acceleration * frameTime * frameTime / 2);
-            }
-            return result;
-        }
-
-        private bool PredictionEnabled = true;
 
         private void PrePool()
         {
@@ -198,8 +210,9 @@ namespace WeaponAimMod
             {
                 this.rbody = base.Tech?.rbody;
             }
-            base.Tech.UpdateEvent.Subscribe(new Action(this.OnUpdate));
 
+#if DEBUG
+            base.Tech.UpdateEvent.Subscribe(new Action(this.OnUpdate));
             this.trajectoryRenderer = base.gameObject.GetComponent<LineRenderer>();
             if (this.trajectoryRenderer == null)
             {
@@ -215,6 +228,7 @@ namespace WeaponAimMod
             trajectoryRenderer.endColor = Color.red;
             trajectoryRenderer.enabled = true;
             WeaponAimMod.logger.Debug("Setup Trajectory Renderer");
+#endif
         }
 
         private void OnDepool()

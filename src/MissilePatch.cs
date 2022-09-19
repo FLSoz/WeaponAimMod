@@ -64,6 +64,7 @@ namespace WeaponAimMod
                 float totalTime = 0f;
                 bool ballisticMissileActive = !disableBallisticOverride && WeaponAimSettings.BallisticMissile;
 
+                float time = Mathf.Infinity;
                 if (ballisticMissileActive)
                 {
                     if (smartMissile)
@@ -71,10 +72,10 @@ namespace WeaponAimMod
                         remainingTime = smartMissile.expireTime - Time.time;
                         totalTime = smartMissile.totalTime;
 
-                        float estActualTime = BallisticEquations.SolveBallisticArc(me.position, speed, targetPosition, V, Vector3.zero);
-                        if (estActualTime != Mathf.Infinity)
+                        time = BallisticEquations.SolveBallisticArc(me.position, speed, targetPosition, V, Vector3.zero, out Vector3 direction);
+                        if (time != Mathf.Infinity)
                         {
-                            estTime = estActualTime;
+                            estTime = time;
                         }
                     }
                 }
@@ -90,8 +91,10 @@ namespace WeaponAimMod
                     {
                         A -= Physics.gravity * projectile.GetGravityScale();
                     }
-                    float time = BallisticEquations.SolveBallisticArc(me.position, speed, targetPosition, V, A);
-
+                    if (time == Mathf.Infinity)
+                    {
+                        time = BallisticEquations.SolveBallisticArc(me.position, speed, targetPosition, V, A, out Vector3 direction);
+                    }
                     if (time != Mathf.Infinity)
                     {
                         // Vector3 originalPosition = targetPosition;

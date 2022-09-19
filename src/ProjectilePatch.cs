@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Diagnostics;
 using System.Text;
+using RuntimeDebugDraw;
 
 namespace WeaponAimMod
 {
@@ -62,6 +63,7 @@ namespace WeaponAimMod
             private static readonly FieldInfo m_Block = typeof(TargetAimer).GetField("m_Block", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             private static readonly FieldInfo m_ChangeTargetTimeout = typeof(TargetAimer).GetField("m_ChangeTargetTimeout", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             private static readonly FieldInfo m_ChangeTargetInteval = typeof(TargetAimer).GetField("m_ChangeTargetInteval", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            private static readonly FieldInfo m_CannonBarrels = AccessTools.Field(typeof(ModuleWeaponGun), "m_CannonBarrels");
 
             [HarmonyPriority(999)]
             public static bool Prefix(TargetAimer __instance)
@@ -83,7 +85,7 @@ namespace WeaponAimMod
                         {
                             PatchAiming.Target.SetValue(__instance, manualTarget);
                         }
-                        else if (__instance.HasTarget && (!__instance.Target.isActive || Time.time > ___m_ChangeTargetTimeout))
+                        else if (__instance.Target != null && (!__instance.Target.isActive || Time.time > ___m_ChangeTargetTimeout))
                         {
                             __instance.Reset();
                         }
@@ -99,7 +101,7 @@ namespace WeaponAimMod
                             }
                             m_ChangeTargetTimeout.SetValue(__instance, Time.time + ___m_ChangeTargetInteval);
                         }
-                        if (__instance.HasTarget && __instance.Target.gameObject.IsNotNull())
+                        if (__instance.Target != null && __instance.Target.gameObject.IsNotNull())
                         {
                             try
                             {
@@ -113,7 +115,7 @@ namespace WeaponAimMod
 
                                 m_TargetPosition.SetValue(__instance, __instance.Target.transform.position);
 
-                                throw new Exception("CAUGHT AN AIM POINT FAILURE");
+                                throw new Exception("CAUGHT AN AIM POINT FAILURE", e);
                             }
                         }
                         else
@@ -156,20 +158,21 @@ namespace WeaponAimMod
                             if (((enemyWeapon && WeaponAimSettings.EnemyLead) || (!enemyWeapon && WeaponAimSettings.PlayerLead)) && muzzleVelocity > 0.0f)
                             {
                                 Vector3 AimPointVector = (Vector3)ProjectilePatch.m_TargetPosition.GetValue(__instance);
-                                Vector3 relDist = AimPointVector - __instance.transform.position;
+                                Vector3 turretCenter = __instance.transform.position + helper.gimbalOffset;
+                                if (!helper.ignoreOffset)
+                                {
+                                }
+
+                                Vector3 relDist = AimPointVector - turretCenter;
                                 WeaponRound bulletPrefab = fireData.m_BulletPrefab;
 
-                                bool useGravity = false;
-                                if (bulletPrefab != null && bulletPrefab is Projectile projectile && projectile.rbody != null)
+                                bool useGravity = helper.useGravity;
+                                if (!useGravity && WeaponAimSettings.BallisticMissile)
                                 {
-                                    if (projectile is MissileProjectile missileProjectile)
+                                    if (bulletPrefab != null && bulletPrefab is MissileProjectile)
                                     {
-                                        useGravity = missileProjectile.rbody.useGravity || WeaponAimSettings.BallisticMissile;
-                                    }
-                                    else
-                                    {
-                                        useGravity = projectile.rbody.useGravity;
-                                    }
+                                        useGravity = true;
+                                    }  
                                 }
 
                                 Rigidbody rbodyTank = __instance.GetComponentInParent<Tank>().rbody;
@@ -178,27 +181,124 @@ namespace WeaponAimMod
                                 Vector3 relativeVelocity = (__instance.Target.rbody ? __instance.Target.rbody.velocity : Vector3.zero) - (rbodyTank.velocity + angularToggle);
 
                                 float time = relDist.magnitude / muzzleVelocity;
-                                Vector3 relativeAcceleration = target.type == ObjectTypes.Vehicle ? TargetManager.GetAcceleration(target.tank) : Vector3.zero;
 
-                                if (useGravity)
+                                // relative acceleratino will accelerate it up
+                                Vector3 relativeBaseAcceleration = target.type == ObjectTypes.Vehicle ? TargetManager.GetAcceleration(target.tank) : Vector3.zero;
+                                Vector3 relativeFullAcceleration = relativeBaseAcceleration - (useGravity ? Physics.gravity : Vector3.zero);
+
+                                float offset = helper.ignoreOffset ? 0.0f : helper.gimbalOffset.z;
+                                Vector3 gimbalHeightOffset = Vector3.zero;
+                                Quaternion extraRotation = Quaternion.identity;
+
+                                // Gimbal height offset is intermediate gimbal height
+                                // We ignore horizontal offset, and we also rotate frame of reference so if base gimbal is not Y, we force it to become Y
+                                if (helper.firstAxis == GimbalAimer.AxisConstraint.X)
                                 {
-                                    relativeAcceleration -= Physics.gravity;
+                                    extraRotation = Quaternion.Euler(0, 0, 90.0f);
+                                    /* if (!helper.ignoreOffset)
+                                    {
+                                        gimbalHeightOffset = helper.intermediateGimbalOffset.x * Vector3.up;
+                                    } */
+                                }
+                                else if (helper.firstAxis == GimbalAimer.AxisConstraint.Y)
+                                {
+                                    /* if (!helper.ignoreOffset)
+                                    {
+                                        gimbalHeightOffset = helper.intermediateGimbalOffset.y * Vector3.up;
+                                    } */
                                 }
 
-                                float exactTime;
-                                if (helper.ignoreOffset)
-                                {
-                                    exactTime = BallisticEquations.SolveBallisticArc(__instance.transform.position, muzzleVelocity, AimPointVector, relativeVelocity, relativeAcceleration);
-                                }
-                                else
-                                {
-                                    exactTime = BallisticEquations.SolveBallisticArcWithOffset(__instance.transform.position, muzzleVelocity, AimPointVector, relativeVelocity, relativeAcceleration, helper.barrelOffset);
-                                }
+                                float exactTime = BallisticEquations.SolveBallisticArc(
+                                    Vector3.zero, muzzleVelocity, extraRotation * __instance.transform.InverseTransformDirection(AimPointVector - turretCenter),
+                                    extraRotation * __instance.transform.InverseTransformDirection(relativeVelocity), extraRotation * __instance.transform.InverseTransformDirection(relativeFullAcceleration),
+                                    out Vector3 direction, barrelLength: offset, useHighArc: helper.useHighArc
+                                );
+
                                 Vector3 adjIntercept = AimPointVector + (relativeVelocity * time);
                                 if (exactTime != Mathf.Infinity)
                                 {
                                     time = exactTime;
-                                    adjIntercept = AimPointVector + (relativeVelocity * time) + ((relativeAcceleration + (useGravity ? Physics.gravity : Vector3.zero)) / 2 * time * time);
+                                    adjIntercept = AimPointVector + (relativeVelocity * time) + ((relativeBaseAcceleration / 2) * time * time);
+#if DEBUG
+                                    if (WeaponAimMod.DEBUG)
+                                    {
+                                        Draw.DrawText(adjIntercept, $"time: {exactTime}, acc: {relativeBaseAcceleration}, vel: {relativeVelocity}, gravity: {useGravity}, highArc: {helper.useHighArc}", Color.green);
+                                    }
+#endif
+                                    if (!helper.ignoreOffset)
+                                    {
+                                        Vector3 actualDirection =  Quaternion.Inverse(extraRotation) * __instance.transform.TransformDirection(direction);
+
+                                        Vector3 relTarget = adjIntercept - turretCenter;
+                                        if (useGravity)
+                                        {
+                                            Vector3 groundLine = new Vector3(relTarget.x, 0.0f, relTarget.z);
+                                            float groundDist = groundLine.magnitude;
+                                            float dirGround = (groundDist * offset) / (offset + (muzzleVelocity * exactTime));
+                                            // actualDirection = groundLine.normalized * dirGround;
+                                            // actualDirection.y = Mathf.Sqrt((offset * offset) - (dirGround * dirGround));
+#if DEBUG
+                                            if (WeaponAimMod.DEBUG)
+                                            {
+                                                Draw.DrawText(turretCenter + (Vector3.up * 2), $"dir: {actualDirection}, rel: {relTarget}, offset: {offset}\nvelocity: {muzzleVelocity}, dist: {groundDist}, dirGround: {dirGround}\nme: {turretCenter}, target: {AimPointVector}", Color.green);
+                                            }
+#endif
+                                        }
+                                        else
+                                        {
+                                            actualDirection = relTarget;
+#if DEBUG
+                                            if (WeaponAimMod.DEBUG)
+                                            {
+                                                Draw.DrawText(turretCenter + (Vector3.up * 2), $"dir: {actualDirection}, rel: {relTarget}, offset: {offset}\nvelocity: {muzzleVelocity}\nme: {turretCenter}, target: {AimPointVector}", Color.green);
+                                            }
+#endif
+                                        }
+
+                                        // we know direction barrel must be facing
+                                        Vector3 actualOffset = actualDirection.normalized * offset;
+                                        adjIntercept -= actualOffset;
+                                        // adjIntercept -= helper.intermediateGimbalOffset;
+#if DEBUG
+                                        if (WeaponAimMod.DEBUG)
+                                        {
+                                            Vector3 curr = turretCenter;
+                                            Vector3 next = turretCenter;
+                                            Vector3 velocity = (actualDirection.normalized * muzzleVelocity) + rbodyTank.velocity + angularToggle;
+                                            /*
+                                            for (float incrTime = 0.1f; incrTime < exactTime; incrTime += 0.1f)
+                                            {
+                                                next = turretCenter + (velocity * incrTime) + (useGravity ? (Physics.gravity * incrTime * incrTime / 2) : Vector3.zero);
+                                                Draw.DrawLine(curr, next, Color.green);
+                                                curr = next;
+                                            } */
+                                            ModuleWeaponGun gun = __instance.GetComponent<ModuleWeaponGun>();
+                                            CannonBarrel[] barrels = (CannonBarrel[])m_CannonBarrels.GetValue(gun);
+                                            foreach (CannonBarrel barrel in barrels)
+                                            {
+                                                Vector3 basePosition = barrel.projectileSpawnPoint.position;
+                                                curr = basePosition;
+                                                next = basePosition;
+                                                for (float incrTime = 0.1f; incrTime < exactTime; incrTime += 0.1f)
+                                                {
+                                                    next = basePosition + (velocity * incrTime) + (useGravity ? (Physics.gravity * incrTime * incrTime / 2) : Vector3.zero);
+                                                    Draw.DrawLine(curr, next, Color.blue);
+                                                    curr = next;
+                                                }
+                                            }
+
+                                            Vector3 actualIntercept = turretCenter + (velocity * exactTime) + (useGravity ? (Physics.gravity * exactTime * exactTime / 2) : Vector3.zero);
+
+                                            Draw.DrawLine(turretCenter, adjIntercept, Color.green);
+                                            Draw.DrawLine(turretCenter, actualIntercept, Color.cyan);
+                                            Draw.DrawLine(turretCenter, turretCenter + direction.normalized * 5.0f, Color.yellow);
+                                            Draw.DrawLine(turretCenter, turretCenter + actualOffset, Color.red);
+                                            TargetManager.DrawBox(turretCenter + actualDirection.normalized * offset, new Bounds(turretCenter + actualDirection.normalized * offset, Vector3.one * 0.5f), Color.red);
+                                            TargetManager.DrawBox(actualIntercept, new Bounds(actualIntercept, Vector3.one * 0.5f), Color.red);
+                                            TargetManager.DrawBox(actualIntercept - actualOffset, new Bounds(actualIntercept - actualOffset, Vector3.one * 0.5f), Color.yellow);
+                                        }
+#endif
+                                    }
                                 }
 
                                 if (timedFuse != null)

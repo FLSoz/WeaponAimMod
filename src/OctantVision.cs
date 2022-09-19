@@ -677,6 +677,7 @@ namespace WeaponAimMod
         private static readonly FieldInfo m_CannonBarrels = typeof(ModuleWeaponGun).GetField("m_CannonBarrels", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         private static readonly FieldInfo m_ChangeTargetTimeout = AccessTools.Field(typeof(TargetAimer), "m_ChangeTargetTimeout");
 
+#if DEBUG
         private static void DrawTarget(TargetAimer __instance, TankBlock block)
         {
             if (!Singleton.Manager<ManPauseGame>.inst.IsPaused)
@@ -700,6 +701,7 @@ namespace WeaponAimMod
                 }
             }
         }
+#endif
 
         public static bool Prefix(TargetAimer __instance, ref float rotateSpeed)
         {
@@ -738,7 +740,9 @@ namespace WeaponAimMod
                     // If we can aim, is all good - continue as normal (will do aim calculation for gimbals twice)
                     if (canAim)
                     {
+#if DEBUG
                         DrawTarget(__instance, block);
+#endif
                         return true;
                     }
 
@@ -872,7 +876,9 @@ namespace WeaponAimMod
                     }
                 }
             }
+#if DEBUG
             DrawTarget(__instance, block);
+#endif
             return true;
         }
     }

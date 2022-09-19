@@ -63,7 +63,7 @@ namespace RuntimeDebugDraw
 		/// <param name="color">Color of the line.</param>
 		/// <param name="duration">How long the line should be visible for.</param>
 		/// <param name="depthTest">Should the line be obscured by objects closer to the camera?</param>
-		[Conditional("_DEBUG")]
+		//[Conditional("_DEBUG")]
 		public static void DrawLine(Vector3 start, Vector3 end, Color color, float duration, bool depthTest)
 		{
 			CheckAndBuildHiddenRTDrawObject();
@@ -79,7 +79,7 @@ namespace RuntimeDebugDraw
 		/// <param name="color">Color of the drawn line.</param>
 		/// <param name="duration">How long the line will be visible for (in seconds).</param>
 		/// <param name="depthTest">Should the line be obscured by other objects closer to the camera?</param>
-		[Conditional("_DEBUG")]
+		//[Conditional("_DEBUG")]
 		public static void DrawRay(Vector3 start, Vector3 dir, Color color, float duration, bool depthTest)
 		{
 			CheckAndBuildHiddenRTDrawObject();
@@ -96,7 +96,7 @@ namespace RuntimeDebugDraw
 		/// <param name="size">Font size for the text.</param>
 		/// <param name="duration">How long the text should be visible for.</param>
 		/// <param name="popUp">Set to true to let the text moving up, so multiple texts at the same position can be visible.</param>
-		[Conditional("_DEBUG")]
+		//[Conditional("_DEBUG")]
 		public static void DrawText(Vector3 pos, string text, Color color, int size, float duration, bool popUp)
 		{
 			CheckAndBuildHiddenRTDrawObject();
@@ -112,7 +112,7 @@ namespace RuntimeDebugDraw
 		/// <param name="offset">Text attach offset to transform position.</param>
 		/// <param name="color">Color for the text.</param>
 		/// <param name="size">Font size for the text.</param>
-		[Conditional("_DEBUG")]
+		//[Conditional("_DEBUG")]
 		public static void AttachText(Transform transform, Func<string> strFunc, Vector3 offset, Color color, int size)
 		{
 			CheckAndBuildHiddenRTDrawObject();
@@ -132,7 +132,7 @@ namespace RuntimeDebugDraw
 		/// </summary>
 		/// <param name="start">Point in world space where the line should start.</param>
 		/// <param name="end">Point in world space where the line should end.</param>
-		[Conditional("_DEBUG")]
+		//[Conditional("_DEBUG")]
 		public static void DrawLine(Vector3 start, Vector3 end)
 		{
 			DrawLine(start, end, DrawDefaultColor, 0f, true);
@@ -145,7 +145,7 @@ namespace RuntimeDebugDraw
 		/// <param name="start">Point in world space where the line should start.</param>
 		/// <param name="end">Point in world space where the line should end.</param>
 		/// <param name="color">Color of the line.</param>
-		[Conditional("_DEBUG")]
+		//[Conditional("_DEBUG")]
 		public static void DrawLine(Vector3 start, Vector3 end, Color color)
 		{
 			DrawLine(start, end, color, 0f, true);
@@ -159,7 +159,7 @@ namespace RuntimeDebugDraw
 		/// <param name="end">Point in world space where the line should end.</param>
 		/// <param name="color">Color of the line.</param>
 		/// <param name="duration">How long the line should be visible for.</param>
-		[Conditional("_DEBUG")]
+		//[Conditional("_DEBUG")]
 		public static void DrawLine(Vector3 start, Vector3 end, Color color, float duration)
 		{
 			DrawLine(start, end, color, duration, true);
@@ -171,7 +171,7 @@ namespace RuntimeDebugDraw
 		/// </summary>
 		/// <param name="start">Point in world space where the ray should start.</param>
 		/// <param name="dir">Direction and length of the ray.</param>
-		[Conditional("_DEBUG")]
+		//[Conditional("_DEBUG")]
 		public static void DrawRay(Vector3 start, Vector3 dir)
 		{
 			DrawRay(start, dir, DrawDefaultColor, 0f, true);
@@ -184,7 +184,7 @@ namespace RuntimeDebugDraw
 		/// <param name="start">Point in world space where the ray should start.</param>
 		/// <param name="dir">Direction and length of the ray.</param>
 		/// <param name="color">Color of the drawn line.</param>
-		[Conditional("_DEBUG")]
+		//[Conditional("_DEBUG")]
 		public static void DrawRay(Vector3 start, Vector3 dir, Color color)
 		{
 			DrawRay(start, dir, color, 0f, true);
@@ -198,7 +198,7 @@ namespace RuntimeDebugDraw
 		/// <param name="dir">Direction and length of the ray.</param>
 		/// <param name="color">Color of the drawn line.</param>
 		/// <param name="duration">How long the line will be visible for (in seconds).</param>
-		[Conditional("_DEBUG")]
+		//[Conditional("_DEBUG")]
 		public static void DrawRay(Vector3 start, Vector3 dir, Color color, float duration)
 		{
 			DrawRay(start, dir, color, duration, true);
@@ -210,7 +210,7 @@ namespace RuntimeDebugDraw
 		/// </summary>
 		/// <param name="pos">Position</param>
 		/// <param name="text">String of the text.</param>
-		[Conditional("_DEBUG")]
+		//[Conditional("_DEBUG")]
 		public static void DrawText(Vector3 pos, string text)
 		{
 			DrawText(pos, text, DrawDefaultColor, DrawTextDefaultSize, 0f, false);
@@ -223,7 +223,7 @@ namespace RuntimeDebugDraw
 		/// <param name="pos">Position</param>
 		/// <param name="text">String of the text.</param>
 		/// <param name="color">Color for the text.</param>
-		[Conditional("_DEBUG")]
+		//[Conditional("_DEBUG")]
 		public static void DrawText(Vector3 pos, string text, Color color)
 		{
 			DrawText(pos, text, color, DrawTextDefaultSize, 0f, false);
@@ -237,7 +237,7 @@ namespace RuntimeDebugDraw
 		/// <param name="text">String of the text.</param>
 		/// <param name="color">Color for the text.</param>
 		/// <param name="size">Font size for the text.</param>
-		[Conditional("_DEBUG")]
+		//[Conditional("_DEBUG")]
 		public static void DrawText(Vector3 pos, string text, Color color, int size)
 		{
 			DrawText(pos, text, color, size, 0f, false);
@@ -252,7 +252,7 @@ namespace RuntimeDebugDraw
 		/// <param name="color">Color for the text.</param>
 		/// <param name="size">Font size for the text.</param>
 		/// <param name="duration">How long the text should be visible for.</param>
-		[Conditional("_DEBUG")]
+		//[Conditional("_DEBUG")]
 		public static void DrawText(Vector3 pos, string text, Color color, int size, float duration)
 		{
 			DrawText(pos, text, color, size, duration, false);
@@ -264,7 +264,7 @@ namespace RuntimeDebugDraw
 		/// </summary>
 		/// <param name="transform">Target transform to attach text to.</param>
 		/// <param name="strFunc">Function will be called on every frame to get a string as attached text. </param>
-		[Conditional("_DEBUG")]
+		//[Conditional("_DEBUG")]
 		public static void AttachText(Transform transform, Func<string> strFunc)
 		{
 			AttachText(transform, strFunc, Vector3.zero, DrawDefaultColor, DrawTextDefaultSize);
@@ -277,7 +277,7 @@ namespace RuntimeDebugDraw
 		/// <param name="transform">Target transform to attach text to.</param>
 		/// <param name="strFunc">Function will be called on every frame to get a string as attached text. </param>
 		/// <param name="offset">Text attach offset to transform position.</param>
-		[Conditional("_DEBUG")]
+		//[Conditional("_DEBUG")]
 		public static void AttachText(Transform transform, Func<string> strFunc, Vector3 offset)
 		{
 			AttachText(transform, strFunc, offset, DrawDefaultColor, DrawTextDefaultSize);
@@ -291,7 +291,7 @@ namespace RuntimeDebugDraw
 		/// <param name="strFunc">Function will be called on every frame to get a string as attached text. </param>
 		/// <param name="offset">Text attach offset to transform position.</param>
 		/// <param name="color">Color for the text.</param>
-		[Conditional("_DEBUG")]
+		//[Conditional("_DEBUG")]
 		public static void AttachText(Transform transform, Func<string> strFunc, Vector3 offset, Color color)
 		{
 			AttachText(transform, strFunc, offset, color, DrawTextDefaultSize);
@@ -469,6 +469,7 @@ namespace RuntimeDebugDraw.Internal
 					? 4 // LEqual
 					: 0 // Always
 					);
+				mat.renderQueue = 1;
 
 				_vertices = new List<Vector3>();
 				_colors = new List<Color>();

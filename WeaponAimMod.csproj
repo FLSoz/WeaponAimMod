@@ -35,15 +35,8 @@
       <HintPath>..\..\..\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\0Harmony.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="0Nuterra.NativeOptions">
-      <HintPath>..\Nuterra.NativeOptions\Nuterra.NativeOptions\bin\0Nuterra.NativeOptions\0Nuterra.NativeOptions.dll</HintPath>
-    </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>..\..\..\Steam\steamapps\common\TerraTech\TerraTechWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="ConfigHelper">
-      <HintPath>..\ConfigHelper\bin\Debug\ConfigHelper.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="DebugWrapper">
@@ -114,6 +107,16 @@
     <ProjectReference Include="..\BlockChangePatcher\BlockChangePatcher.csproj">
       <Project>{251b510b-9656-4b9e-846a-d3508b618f14}</Project>
       <Name>BlockChangePatcher</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ConfigHelper\ConfigHelper.csproj">
+      <Project>{f4501c98-fb8c-4305-ba8e-eadcf0db86a3}</Project>
+      <Name>ConfigHelper</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\Nuterra.NativeOptions\Nuterra.NativeOptions\Nuterra.NativeOptions.csproj">
+      <Project>{14ae920e-93c1-4faa-b51c-a21a167667b2}</Project>
+      <Name>Nuterra.NativeOptions</Name>
+      <Private>False</Private>
     </ProjectReference>
     <ProjectReference Include="..\TechComponentInjector\TechComponentInjector\TechComponentInjector.csproj">
       <Project>{50a84443-8e82-4060-b2ca-2aa653724548}</Project>
