@@ -95,9 +95,23 @@ namespace WeaponAimMod
             }
 
             // Perform any injected setup
-            this.Setup();
+            try
+            {
+                // Perform any injected setup
+                this.Setup();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting up loger");
+                Console.WriteLine(ex.ToString());
+            }
+            this.Debug("Logger initialized");
         }
-        public void Setup() { }
+
+        public void Setup()
+        {
+            this.Trace("Setup Hook called");
+        }
 
         private void Log(byte level, string message)
         {

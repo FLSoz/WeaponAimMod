@@ -368,13 +368,13 @@ namespace WeaponAimMod
                     if (Singleton.Manager<ManNetwork>.inst.IsMultiplayer() && Singleton.Manager<ManNetwork>.inst.NetController != null)
                     {
                         NetTech notableTech = Singleton.Manager<ManNetwork>.inst.NetController.GetNotableTech();
-                        if (notableTech != null && notableTech.tech == tank && tank.IsEnemy(team) && notableTech.InitialSpawnShieldID == 0U)
+                        if (notableTech != null && notableTech.tech == tank && tank.IsEnemy(team) && notableTech.InitialSpawnShieldID == 0U && tank.CentralBlock != null)
                         {
                             visible = notableTech.tech.visible;
                             break;
                         }
                     }
-                    if (tank != null && tank.IsEnemy(team) && tank.ShouldShowOverlay)
+                    if (tank != null && tank.IsEnemy(team) && tank.ShouldShowOverlay && tank.CentralBlock != null)
                     {
                         float sqrMagnitude = (searchPosition - tank.trans.position).sqrMagnitude;
                         float num2;
@@ -596,17 +596,17 @@ namespace WeaponAimMod
 
     public static class PatchLogSearchSphere
     {
-        public static void Postfix(ref TechVision __instance)
+        public static void Postfix(TechVision __instance)
         {
             Console.WriteLine($"RECALCULATE SEARCH SPHERE {__instance.Tech.name}");
         }
     }
 
-    [HarmonyPatch(typeof(TechVision))]
-    [HarmonyPatch("RefreshState")]
+    // [HarmonyPatch(typeof(TechVision))]
+    // [HarmonyPatch("RefreshState")]
     public static class PatchLogRefreshState
     {
-        public static void Postfix(ref TechVision __instance)
+        public static void Postfix(TechVision __instance)
         {
             Console.WriteLine($"REFRESH STATE {__instance.Tech.name}");
         }
@@ -616,7 +616,7 @@ namespace WeaponAimMod
     [HarmonyPatch("GetFirstVisibleTechIsEnemy")]
     public static class PatchEnemySearch
     {
-        public static bool Prefix(ref TechVision __instance, ref int team, ref Visible __result)
+        public static bool Prefix(TechVision __instance, int team, ref Visible __result)
         {
             OctantVision octantVision = __instance.GetComponent<OctantVision>();
             if (octantVision)
@@ -632,7 +632,7 @@ namespace WeaponAimMod
     [HarmonyPatch("AddVision")]
     public static class PatchAddVision
     {
-        public static void Postfix(ref TechVision __instance, ref ModuleVision vision)
+        public static void Postfix(TechVision __instance, ModuleVision vision)
         {
             OctantVision octantVision = __instance.GetComponent<OctantVision>();
             if (octantVision)

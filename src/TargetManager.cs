@@ -9,7 +9,6 @@ using RuntimeDebugDraw;
 
 namespace WeaponAimMod
 {
-    [RequireComponent(typeof(Tank))]
     public class TargetManager : TechComponent
     {
         [SerializeField]

@@ -186,6 +186,8 @@ namespace WeaponAimMod
                 averageOffset /= cannonBarrels.Length;
 
                 helper.barrelLength = averageOffset.z;
+                // disable barrel length
+                helper.barrelLength = 0.0f;
 
                 if (helper.gimbalOffset == Vector3.zero)
                 {

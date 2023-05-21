@@ -73,10 +73,11 @@ namespace WeaponAimMod
                     TankBlock ___m_Block = (TankBlock)m_Block.GetValue(__instance);
                     float ___m_ChangeTargetTimeout = (float)m_ChangeTargetTimeout.GetValue(__instance);
                     float ___m_ChangeTargetInteval = (float)m_ChangeTargetInteval.GetValue(__instance);
+                    Tank tank = ___m_Block.tank;
 
-                    if (!___m_Block || !___m_Block.tank)
+                    if (___m_Block.IsNull() || tank.IsNull())
                     {
-                        __instance.Reset();
+                        return false;
                     }
                     else
                     {
@@ -85,23 +86,25 @@ namespace WeaponAimMod
                         {
                             PatchAiming.Target.SetValue(__instance, manualTarget);
                         }
-                        else if (__instance.Target != null && (!__instance.Target.isActive || Time.time > ___m_ChangeTargetTimeout))
+                        else if (__instance.Target != null && (!__instance.Target.isActive || Time.time > ___m_ChangeTargetTimeout || !tank.Vision.CanSee(__instance.Target)))
                         {
                             __instance.Reset();
+                            m_ChangeTargetTimeout.SetValue(__instance, ___m_ChangeTargetTimeout);
                         }
-                        if (__instance.Target == null && ___m_Block.tank.control.targetType != ObjectTypes.Null && (!__instance.HasTarget || !___m_Block.tank.Vision.CanSee(__instance.Target)))
+                        if (!__instance.HasTarget && tank.control.targetType != ObjectTypes.Null)
                         {
-                            if (___m_Block.tank.control.targetType == ObjectTypes.Vehicle)
+                            if (tank.control.targetType == ObjectTypes.Vehicle)
                             {
-                                PatchAiming.Target.SetValue(__instance, ___m_Block.tank.Vision.GetFirstVisibleTechIsEnemy(___m_Block.tank.Team));
+                                WeaponAimMod.logger.Trace($"Selecting new target. Current block details: {___m_Block}, tank {tank}, tank team: {tank.Team}");
+                                PatchAiming.Target.SetValue(__instance, tank.Vision.GetFirstVisibleTechIsEnemy(tank.Team));
                             }
                             else
                             {
-                                PatchAiming.Target.SetValue(__instance, ___m_Block.tank.Vision.GetFirstVisible());
+                                PatchAiming.Target.SetValue(__instance, tank.Vision.GetFirstVisible());
                             }
                             m_ChangeTargetTimeout.SetValue(__instance, Time.time + ___m_ChangeTargetInteval);
                         }
-                        if (__instance.Target != null && __instance.Target.gameObject.IsNotNull())
+                        if (__instance.HasTarget)
                         {
                             try
                             {
@@ -109,25 +112,25 @@ namespace WeaponAimMod
                             }
                             catch (Exception e)
                             {
-                                Console.WriteLine(e);
-                                Console.WriteLine(__instance.Target.gameObject == null);
-                                Console.WriteLine($"Failed to get aim point for {__instance.Target.name}");
+                                WeaponAimMod.logger.Error(e);
+                                WeaponAimMod.logger.Error($"Failed to get aim point for {__instance.Target.name}");
+                                WeaponAimMod.logger.Error($"{__instance.Target.gameObject == null}");
 
                                 m_TargetPosition.SetValue(__instance, __instance.Target.transform.position);
 
                                 throw new Exception("CAUGHT AN AIM POINT FAILURE", e);
                             }
                         }
-                        else
+                        /* else
                         {
                             __instance.Reset();
-                        }
+                        } */
                     }
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("[WeaponAimMod] TargetAimer.UpdateTarget PATCH FAILED");
-                    Console.WriteLine(e.ToString());
+                    WeaponAimMod.logger.Error("[WeaponAimMod] TargetAimer.UpdateTarget PATCH FAILED");
+                    WeaponAimMod.logger.Error(e.ToString());
                 }
                 return false;
             }
@@ -186,7 +189,7 @@ namespace WeaponAimMod
                                 Vector3 relativeBaseAcceleration = target.type == ObjectTypes.Vehicle ? TargetManager.GetAcceleration(target.tank) : Vector3.zero;
                                 Vector3 relativeFullAcceleration = relativeBaseAcceleration - (useGravity ? Physics.gravity : Vector3.zero);
 
-                                float offset = helper.ignoreOffset ? 0.0f : helper.gimbalOffset.z;
+                                float offset = helper.ignoreOffset ? 0.0f : helper.barrelLength;
                                 Vector3 gimbalHeightOffset = Vector3.zero;
                                 Quaternion extraRotation = Quaternion.identity;
 
@@ -227,16 +230,16 @@ namespace WeaponAimMod
 #endif
                                     if (!helper.ignoreOffset)
                                     {
-                                        Vector3 actualDirection =  Quaternion.Inverse(extraRotation) * __instance.transform.TransformDirection(direction);
-
+                                        Vector3 actualDirection =  __instance.transform.TransformDirection(Quaternion.Inverse(extraRotation) * direction);
+                                        /*
                                         Vector3 relTarget = adjIntercept - turretCenter;
                                         if (useGravity)
                                         {
                                             Vector3 groundLine = new Vector3(relTarget.x, 0.0f, relTarget.z);
                                             float groundDist = groundLine.magnitude;
                                             float dirGround = (groundDist * offset) / (offset + (muzzleVelocity * exactTime));
-                                            // actualDirection = groundLine.normalized * dirGround;
-                                            // actualDirection.y = Mathf.Sqrt((offset * offset) - (dirGround * dirGround));
+                                            actualDirection = groundLine.normalized * dirGround;
+                                            actualDirection.y = Mathf.Sqrt((offset * offset) - (dirGround * dirGround));
 #if DEBUG
                                             if (WeaponAimMod.DEBUG)
                                             {
@@ -254,6 +257,7 @@ namespace WeaponAimMod
                                             }
 #endif
                                         }
+                                        */
 
                                         // we know direction barrel must be facing
                                         Vector3 actualOffset = actualDirection.normalized * offset;
@@ -321,13 +325,13 @@ namespace WeaponAimMod
                 }
                 catch (NullReferenceException exception)
                 {
-                    Console.WriteLine("[WeaponAimMod] TargetAimer.UpdateTarget PATCH FAILED");
-                    Console.WriteLine(exception);
+                    WeaponAimMod.logger.Warn("[WeaponAimMod] TargetAimer.UpdateTarget PATCH FAILED");
+                    WeaponAimMod.logger.Warn(exception.ToString());
                 }
                 catch (Exception exception)
                 {
-                    Console.WriteLine("[WeaponAimMod] TargetAimer.Updatetarget PATCH CRITICAL FAILURE");
-                    Console.WriteLine(exception);
+                    WeaponAimMod.logger.Error("[WeaponAimMod] TargetAimer.Updatetarget PATCH CRITICAL FAILURE");
+                    WeaponAimMod.logger.Error(exception);
                 }
             }
 
@@ -354,7 +358,7 @@ namespace WeaponAimMod
             private static readonly FieldInfo m_MaxBoosterLifetime = typeof(MissileProjectile).GetField("m_MaxBoosterLifetime", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
             private static readonly FieldInfo m_LifeTime = typeof(Projectile).GetField("m_LifeTime", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-            private static bool Prefix(ref Projectile __instance, FireData fireData, out float __state)
+            private static bool Prefix(Projectile __instance, FireData fireData, out float __state)
             {
                 __state = (float) m_LifeTime.GetValue(__instance);
 
@@ -392,7 +396,7 @@ namespace WeaponAimMod
             public static readonly FieldInfo m_SeekingProjectile = typeof(Projectile).GetField("m_SeekingProjectile", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             public static readonly FieldInfo m_VisionConeAngle = typeof(SeekingProjectile).GetField("m_VisionConeAngle", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-            public static void Postfix(ref ModuleWeapon __instance)
+            public static void Postfix(ModuleWeapon __instance)
             {
                 if (!__instance.FireControl && __instance.block.tank.IsAIControlled())
                 {
@@ -430,6 +434,31 @@ namespace WeaponAimMod
                     WeaponAimMod.logger.Error($"Game FAILED at UpdateAutoAimBehaviour:\n{__exception}");
                 }
                 return null;
+            }
+        }
+
+        [HarmonyPatch(typeof(Visible), "GetAimPoint")]
+        public static class PatchAimPoint
+        {
+            public static bool Prefix(Visible __instance, Vector3 origin, ref Vector3 __result)
+            {
+                if (__instance.type == ObjectTypes.Vehicle)
+                {
+                    if (__instance.tank.IsNotNull())
+                    {
+                        __result = __instance.tank.control.GetWeaponTargetLocation(origin);
+                    }
+                    else
+                    {
+                        // Visible has null tank??????
+                        __result = __instance.transform.position;
+                    }
+                }
+                else
+                {
+                    __result = __instance.centrePosition;
+                }
+                return false;
             }
         }
     }
