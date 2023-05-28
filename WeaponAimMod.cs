@@ -7,6 +7,8 @@ using System.Reflection;
 using HarmonyLib;
 using BlockChangePatcher;
 using UnityEngine;
+using System.Runtime.Remoting.Messaging;
+using static ManMap;
 
 namespace WeaponAimMod
 {
@@ -32,7 +34,8 @@ namespace WeaponAimMod
             return new Type[] { typeof(TechComponentInjector.TechComponentInjector), typeof(BlockChangePatcherMod) };
         }
 
-        internal static Change change;
+        internal static Change helperChange;
+        internal static Change missileChange;
 
         private class WeaponConditional : CustomConditional
         {
@@ -41,7 +44,7 @@ namespace WeaponAimMod
                 Transform target = blockData.blockPrefab;
                 // no leading on flamethrowers
                 ModuleWeaponFlamethrower flamethrower = target.GetComponent<ModuleWeaponFlamethrower>();
-                if (flamethrower != null)
+                if (flamethrower.IsNotNull())
                 {
                     if (blockData.VanillaID > 0)
                     {
@@ -63,7 +66,7 @@ namespace WeaponAimMod
                 }
 
                 FireDataShotgun shotgun = target.GetComponent<FireDataShotgun>();
-                if (shotgun != null)
+                if (shotgun.IsNotNull())
                 {
                     if (blockData.VanillaID > 0)
                     {
@@ -77,12 +80,12 @@ namespace WeaponAimMod
                 }
 
                 ModuleWeaponGun moduleWeaponGun = target.GetComponent<ModuleWeaponGun>();
-                if (moduleWeaponGun != null)
+                if (moduleWeaponGun.IsNotNull())
                 {
                     logger.Debug($"ModuleWeaponGun found");
                     FireData fireData = target.GetComponent<FireData>();
                     // no patching shotguns
-                    if (fireData != null)
+                    if (fireData.IsNotNull())
                     {
                         logger.Debug($"FireData present");
                         // no leading for beam weapons
@@ -91,7 +94,7 @@ namespace WeaponAimMod
                         {
                             foreach (CannonBarrel cannonBarrel in cannonBarrels)
                             {
-                                if (cannonBarrel.beamWeapon != null)
+                                if (cannonBarrel.beamWeapon.IsNotNull())
                                 {
                                     if (blockData.VanillaID > 0)
                                     {
@@ -107,7 +110,7 @@ namespace WeaponAimMod
                         }
 
                         ModuleWeaponAimHelper helper = target.GetComponent<ModuleWeaponAimHelper>();
-                        if (fireData.m_MuzzleVelocity > 0.0f || (helper != null && helper.muzzleVelocityOverride > 0.0f))
+                        if (fireData.m_MuzzleVelocity > 0.0f || (helper.IsNotNull() && helper.muzzleVelocityOverride > 0.0f))
                         {
                             logger.Debug($"Has muzzle velocity");
                             if (blockData.VanillaID > 0)
@@ -127,21 +130,35 @@ namespace WeaponAimMod
             }
         }
 
-        private void PatchWeapon(BlockMetadata blockData)
+        private class MissileConditional : CustomConditional
+        {
+            public override bool Validate(BlockMetadata blockData)
+            {
+                Transform editablePrefab = blockData.blockPrefab;
+                ModuleWeaponGun gun = editablePrefab.GetComponent<ModuleWeaponGun>();
+                if (gun.IsNotNull())
+                {
+                    return gun.m_SeekingRounds;
+                }
+                return false;
+            }
+        }
+
+        private void AddHelper(BlockMetadata blockData)
         {
             Transform editablePrefab = blockData.blockPrefab;
             ModuleWeaponAimHelper helper = editablePrefab.GetComponent<ModuleWeaponAimHelper>();
             TimedFuseData fuseData = editablePrefab.GetComponent<TimedFuseData>();
 
             logger.Debug($"Start patch");
-            bool startedWithFuse = fuseData != null;
+            /* bool startedWithFuse = fuseData.IsNotNull();
             if (!startedWithFuse)
             {
                 fuseData = editablePrefab.gameObject.AddComponent<TimedFuseData>();
             }
             fuseData.always_present = startedWithFuse;
-            logger.Debug($"fuse data set");
-            if (helper == null)
+            logger.Debug($"fuse data set - started with fuse? {startedWithFuse}"); */
+            if (helper.IsNull())
             {
                 helper = editablePrefab.gameObject.AddComponent<ModuleWeaponAimHelper>();
             }
@@ -164,7 +181,7 @@ namespace WeaponAimMod
                     while (curr != editablePrefab && index < 10)
                     {
                         lastAimer = curr.GetComponent<GimbalAimer>();
-                        if (lastAimer != null)
+                        if (lastAimer.IsNotNull())
                         {
                             break;
                         }
@@ -173,7 +190,7 @@ namespace WeaponAimMod
                     }
 
                     Vector3 localPosition;
-                    if (lastAimer != null)
+                    if (lastAimer.IsNotNull())
                     {
                         localPosition = lastAimer.transform.InverseTransformPoint(projectileSpawn.position);
                     }
@@ -201,7 +218,7 @@ namespace WeaponAimMod
                     {
                         Transform curr = frontier.Dequeue();
                         GimbalAimer aimer = curr.GetComponent<GimbalAimer>();
-                        if (aimer != null)
+                        if (aimer.IsNotNull())
                         {
                             aimers.Add(aimer);
                         }
@@ -246,7 +263,7 @@ namespace WeaponAimMod
                             {
                                 Transform curr = frontier.Dequeue();
                                 GimbalAimer aimer = curr.GetComponent<GimbalAimer>();
-                                if (aimer != null && aimer.rotationAxis != firstAxis)
+                                if (aimer.IsNotNull() && aimer.rotationAxis != firstAxis)
                                 {
                                     secondAimers.Add(aimer);
                                 }
@@ -284,27 +301,37 @@ namespace WeaponAimMod
                     }
                 }
             }
+        }
 
-            FireData fireData = editablePrefab.gameObject.GetComponent<FireData>();
-            if (fireData.m_BulletPrefab != null && fireData.m_BulletPrefab is Projectile projectile)
+        private static Transform GetProjectilePrefab(BlockMetadata block)
+        {
+            return block.blockPrefab.GetComponent<FireData>().m_BulletPrefab.transform;
+        }
+        private static void PatchProjectile(BlockMetadata block, Transform projectilePrefab)
+        {
+            if (projectilePrefab != null)
             {
-                Rigidbody rbody = projectile.GetComponent<Rigidbody>();
-                if (rbody != null) {
-                    helper.useGravity = rbody.useGravity;
-                }
+                Projectile projectile = projectilePrefab.GetComponent<Projectile>();
 
                 SeekingProjectile seekingProjectile = projectile.GetComponent<SeekingProjectile>();
-                if (seekingProjectile != null)
+                if (seekingProjectile.IsNotNull())
                 {
                     SmartMissile smartMissile = projectile.GetComponent<SmartMissile>();
-                    if (smartMissile == null)
+                    if (smartMissile.IsNull())
                     {
                         smartMissile = projectile.gameObject.AddComponent<SmartMissile>();
-                        smartMissile.disableLead = false;
-                        smartMissile.velocityOverride = 0.0f;
-                        smartMissile.disableBallistic = false;
+                        smartMissile.Init();
                     }
                 }
+            }
+        }
+        private static void ReplaceProjectilePrefab(BlockMetadata block, Transform editableAncillaryPrefab)
+        {
+            FireData fireData = block.blockPrefab.GetComponent<FireData>();
+            fireData.m_BulletPrefab = editableAncillaryPrefab.GetComponent<WeaponRound>();
+            if (fireData.m_BulletPrefab == null)
+            {
+                logger.Fatal($"NULL BULLET PREFAB");
             }
         }
 
@@ -316,12 +343,24 @@ namespace WeaponAimMod
                 IngressPoint.SetupConfig();
                 IngressPoint.SetupUI();
                 Inited = true;
-                change = new Change
+                helperChange = new Change
                 {
-                    id = "Weapon Aim Mod",
+                    id = "Weapon Aim Mod Helper",
                     targetType = ChangeTargetType.TRANSFORM,
                     condition = new WeaponConditional(),
-                    patcher = new Action<BlockMetadata>(PatchWeapon)
+                    patcher = new Action<BlockMetadata>(AddHelper)
+                };
+                missileChange = new Change {
+                    id = "WAM Missile Patch",
+                    targetType = ChangeTargetType.TRANSFORM,
+                    targetsAncillaryPrefabs = true,
+                    condition = new MissileConditional(),
+                    ancillaryChanges = new List<AncillaryChange>{ new AncillaryChange {
+                        id = "SmartMissile",
+                        AncillaryPatcher = new Action<BlockMetadata, Transform>(PatchProjectile),
+                        GetAncillaryPrefab = new Func<BlockMetadata, Transform>(GetProjectilePrefab),
+                        UpdateAncillaryPrefab = new Action<BlockMetadata, Transform>(ReplaceProjectilePrefab)
+                    } }
                 };
             }
         }
@@ -343,7 +382,8 @@ namespace WeaponAimMod
             TechComponentInjector.TechComponentInjector.AddTechComponentToInject(typeof(TargetManager));
             TechComponentInjector.TechComponentInjector.AddTechComponentToInject(typeof(OctantVision));
             harmony.PatchAll(Assembly.GetExecutingAssembly());
-            BlockChangePatcherMod.RegisterChange(change);
+            BlockChangePatcherMod.RegisterChange(helperChange);
+            BlockChangePatcherMod.RegisterChange(missileChange);
         }
     }
 }

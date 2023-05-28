@@ -56,7 +56,7 @@ namespace RuntimeDebugDraw
 		}
 
 		/// <summary>
-		///	Draw a line from <paramref name="start"/> to <paramref name="end"/> with <paramref name="color"/>.
+		///	Draw a line from <paramname="start"/> to <paramname="end"/> with <paramname="color"/>.
 		/// </summary>
 		/// <param name="start">Point in world space where the line should start.</param>
 		/// <param name="end">Point in world space where the line should end.</param>
@@ -128,7 +128,7 @@ namespace RuntimeDebugDraw
 		 */
 
 		/// <summary>
-		///	Draw a line from <paramref name="start"/> to <paramref name="end"/> with <paramref name="color"/>.
+		///	Draw a line from <paramname="start"/> to <paramname="end"/> with <paramname="color"/>.
 		/// </summary>
 		/// <param name="start">Point in world space where the line should start.</param>
 		/// <param name="end">Point in world space where the line should end.</param>
@@ -140,7 +140,7 @@ namespace RuntimeDebugDraw
 		}
 
 		/// <summary>
-		///	Draw a line from <paramref name="start"/> to <paramref name="end"/> with <paramref name="color"/>.
+		///	Draw a line from <paramname="start"/> to <paramname="end"/> with <paramname="color"/>.
 		/// </summary>
 		/// <param name="start">Point in world space where the line should start.</param>
 		/// <param name="end">Point in world space where the line should end.</param>
@@ -153,7 +153,7 @@ namespace RuntimeDebugDraw
 		}
 
 		/// <summary>
-		///	Draw a line from <paramref name="start"/> to <paramref name="end"/> with <paramref name="color"/>.
+		///	Draw a line from <paramname="start"/> to <paramname="end"/> with <paramname="color"/>.
 		/// </summary>
 		/// <param name="start">Point in world space where the line should start.</param>
 		/// <param name="end">Point in world space where the line should end.</param>
@@ -311,12 +311,12 @@ namespace RuntimeDebugDraw
 		private static string HIDDEN_GO_NAME = "________HIDDEN_C4F6A87F298241078E21C0D7C1D87A76_";
 		private static void CheckAndBuildHiddenRTDrawObject()
 		{
-			if (_rtDraw != null)
+			if (_rtDraw.IsNotNull())
 				return;
 
 			//	try reuse existing one first
 			_rtDraw = GameObject.FindObjectOfType<RuntimeDebugDraw.Internal.RuntimeDebugDraw>();
-			if (_rtDraw != null)
+			if (_rtDraw.IsNotNull())
 				return;
 
 			//	instantiate an hidden gameobject w/ RuntimeDebugDraw attached.
@@ -759,10 +759,10 @@ namespace RuntimeDebugDraw.Internal
 				var entry = _attachTextEntries[ix];
 				if (!entry.occupied)
 					continue;
-				if (entry.transform == null)
+				if (entry.transform.IsNull())
 				{
 					entry.occupied = false;
-					entry.strFunc = null;   // needs to release ref to callback
+					entry.strFunc = null;   // needs to release to callback
 				}
 				else if (entry.flag == DrawFlag.DrawnAll)
 				{
@@ -785,7 +785,7 @@ namespace RuntimeDebugDraw.Internal
 		private void DrawTextOnGUI()
 		{
 			var camera = Draw.GetDebugDrawCamera();
-			if (camera == null)
+			if (camera.IsNull())
 				return;
 
 			for (int ix = 0; ix < _drawTextEntries.Count; ix++)
@@ -833,7 +833,7 @@ namespace RuntimeDebugDraw.Internal
 
 		private void GUIAttachTextEntry(Camera camera, AttachTextEntry entry)
 		{
-			if (entry.transform == null)
+			if (entry.transform.IsNull())
 				return;
 
 			Vector3 worldPos = entry.transform.position + entry.offset;
@@ -857,7 +857,7 @@ namespace RuntimeDebugDraw.Internal
 				return;
 
 			var camera = Camera.current;
-			if (camera == null)
+			if (camera.IsNull())
 				return;
 
 			UnityEditor.Handles.BeginGUI();

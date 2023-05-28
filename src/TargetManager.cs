@@ -29,10 +29,10 @@ namespace WeaponAimMod
 
         public static Vector3 GetAcceleration(Tank tank)
         {
-            if (tank != null)
+            if (tank.IsNotNull())
             {
                 TargetManager targetManager = tank.GetComponentInParent<TargetManager>();
-                if (targetManager != null)
+                if (targetManager.IsNotNull())
                 {
                     return targetManager.Acceleration;
                 }
@@ -48,10 +48,10 @@ namespace WeaponAimMod
         public static void DrawTarget(Tank tank)
         {
             /*
-            if (WeaponAimMod.DEBUG && tank != null)
+            if (WeaponAimMod.DEBUG && tank.IsNotNull())
             {
                 TargetManager targetManager = tank.GetComponentInParent<TargetManager>();
-                if (targetManager != null)
+                if (targetManager.IsNotNull())
                 {
                     targetManager.SetDrawTarget();
                     return;
@@ -130,7 +130,7 @@ namespace WeaponAimMod
             WeaponAimMod.logger.Trace(this.Tech.name);
             if (!Singleton.Manager<ManPauseGame>.inst.IsPaused)
             {
-                if (this.rbody != null)
+                if (this.rbody.IsNotNull())
                 {
                     int lastIndex = this.index - 1;
                     if (lastIndex == -1)
@@ -205,7 +205,7 @@ namespace WeaponAimMod
         {
             WeaponAimMod.logger.Debug("TargetManager OnPool");
             this.rbody = base.GetComponent<Rigidbody>();
-            if (this.rbody == null)
+            if (this.rbody.IsNull())
             {
                 this.rbody = base.Tech?.rbody;
             }
@@ -213,7 +213,7 @@ namespace WeaponAimMod
 #if DEBUG
             base.Tech.UpdateEvent.Subscribe(new Action(this.OnUpdate));
             this.trajectoryRenderer = base.gameObject.GetComponent<LineRenderer>();
-            if (this.trajectoryRenderer == null)
+            if (this.trajectoryRenderer.IsNull())
             {
                 this.trajectoryRenderer = base.gameObject.AddComponent<LineRenderer>();
             }

@@ -85,7 +85,6 @@
   <ItemGroup>
     <Compile Include="Logger.cs" />
     <Compile Include="src\AccurateExplosionSpawnPatch.cs" />
-    <Compile Include="src\AutoSetFusePatch.cs" />
     <Compile Include="src\BallisticEquations.cs" />
     <Compile Include="src\IngressPoint.cs" />
     <Compile Include="src\ListExtensions.cs" />

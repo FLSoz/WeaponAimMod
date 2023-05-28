@@ -2,6 +2,7 @@
 using UnityEngine;
 using System.Reflection;
 using System;
+using static CompoundExpression;
 
 namespace WeaponAimMod
 {
@@ -14,101 +15,123 @@ namespace WeaponAimMod
         public static class PatchMissiles
         {
             private static readonly FieldInfo m_MyProjectile = typeof(SeekingProjectile).GetField("m_MyProjectile", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            private static readonly FieldInfo m_MyTransform = typeof(SeekingProjectile).GetField("m_MyTransform", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
             private static readonly FieldInfo m_TurnSpeed = typeof(SeekingProjectile).GetField("m_TurnSpeed", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
             private static readonly FieldInfo m_ApplyRotationTowardsTarget = typeof(SeekingProjectile).GetField("m_ApplyRotationTowardsTarget", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
             private static readonly MethodInfo GetCurrentTarget = typeof(SeekingProjectile).GetMethod("GetCurrentTarget", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
             private static readonly MethodInfo GetTargetAimPosition = typeof(SeekingProjectile).GetMethod("GetTargetAimPosition", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
-            // Actually apply rotation towards target
-            private static void ApplyRotation(SeekingProjectile __instance, Projectile projectile, Transform me, Vector3 targetPosition, bool reduced)
+            private static void ApplyRotationToRbody(Rigidbody rbody, Quaternion change, bool rotateTransform = true)
             {
-                bool applyRotation = (bool)m_ApplyRotationTowardsTarget.GetValue(__instance);
+                Vector3 newVelocity = change * rbody.velocity;
+                rbody.velocity = newVelocity;
+                if (rotateTransform)
+                {
+                    Quaternion originalRot = rbody.rotation;
+                    Quaternion newRot = change * originalRot;
+                    Quaternion alignedRot = Quaternion.RotateTowards(newRot, Quaternion.LookRotation(newVelocity), 45 * Time.fixedDeltaTime);
+                    rbody.MoveRotation(alignedRot);
+                    WeaponAimMod.logger.Trace($"Rotating missile. Original: {originalRot.eulerAngles}, New: {newRot.eulerAngles}, Velocity Aligned:{Quaternion.LookRotation(newVelocity).eulerAngles}, Adjusted Target: {alignedRot.eulerAngles}, Updated {rbody.rotation.eulerAngles}");
+                }
+            }
 
-                Vector3 vector = targetPosition - me.position;
-                Vector3 normalized = Vector3.Cross(projectile.rbody.velocity, vector).normalized;
-                float b = Vector3.Angle(projectile.trans.forward, vector);
+            // Actually apply rotation towards target
+            private static void ApplyRotation(SeekingProjectile __instance, Projectile projectile, Vector3 targetDirection, bool reduced)
+            {
+                Vector3 normalized = Vector3.Cross(projectile.rbody.velocity, targetDirection).normalized;
+                float b = Vector3.Angle(projectile.trans.forward, targetDirection);
 
                 float turnSpeed = (float)m_TurnSpeed.GetValue(__instance);
                 if (reduced)
                 {
-                    turnSpeed = Mathf.Min(turnSpeed * 0.1f, 5f);
+                    // cripple turning speed at end of lifetime
+                    turnSpeed = Mathf.Max(turnSpeed * 0.1f, 5f);
                 }
 
-                Quaternion quaternion = Quaternion.AngleAxis(Mathf.Min(turnSpeed * Time.deltaTime, b), normalized);
-                projectile.rbody.velocity = quaternion * projectile.rbody.velocity;
-                if (applyRotation)
-                {
-                    Quaternion rot = quaternion * projectile.rbody.rotation;
-                    projectile.rbody.MoveRotation(rot);
-                }
+                bool applyRotation = (bool)m_ApplyRotationTowardsTarget.GetValue(__instance);
+                Quaternion changeRot = Quaternion.AngleAxis(Mathf.Min(turnSpeed * Time.fixedDeltaTime, b), normalized);
+                ApplyRotationToRbody(projectile.rbody, changeRot, applyRotation);
             }
             
             // Predict where enemy is going, then apply rotation towards that
-            private static void CalculateAndApplyRotation(SeekingProjectile __instance, Projectile projectile, Visible target, Transform me, Vector3 targetPosition, Vector3 V, bool reduced, bool guess = false)
+            private static void CalculateAndApplyRotation(
+                SeekingProjectile __instance, Projectile projectile, Visible target,
+                Vector3 targetPosition, Vector3 targetVelocity, Vector3 targetAcceleration, bool reduced, bool guess = false)
             {
-                float speed = projectile.rbody.velocity.magnitude;
+                Vector3 myPosition = __instance.transform.position;
                 SmartMissile smartMissile = __instance.GetComponent<SmartMissile>();
-                bool disableBallisticOverride = false;
-                if (smartMissile != null)
+                float remainingTime = smartMissile.expireTime - Time.time;
+                float speed = smartMissile.GetMaxVelocity(remainingTime);
+                bool disableBallisticOverride = smartMissile.disableBallistic;
+                if (smartMissile.velocityOverride > 0.0f)
                 {
-                    disableBallisticOverride = smartMissile.disableBallistic;
-                    if (smartMissile.velocityOverride > 0.0f)
-                    {
-                        speed = smartMissile.velocityOverride;
-                    }
+                    speed = smartMissile.velocityOverride;
                 }
 
-                float estTime = (targetPosition - me.position).magnitude / speed;
-                float remainingTime = 0f;
-                float totalTime = 0f;
+                Vector3 A = !guess && target.type == ObjectTypes.Vehicle ? TargetManager.GetAcceleration(target.tank) : targetAcceleration;
+                Vector3 relDist = targetPosition - myPosition;
+                float estTime = relDist.magnitude / speed;
+
+                bool accelerationGravityAdjusted = false;
+                if (projectile.rbody.useGravity)
+                {
+                    A -= Physics.gravity * projectile.GetGravityScale();
+                    accelerationGravityAdjusted = true;
+                }
+                bool failedBallistic = false;
                 bool ballisticMissileActive = !disableBallisticOverride && WeaponAimSettings.BallisticMissile;
 
-                float time = Mathf.Infinity;
-                if (ballisticMissileActive)
+                float time = BallisticEquations.SolveBallisticArc(myPosition, speed, targetPosition, targetVelocity, A, out Vector3 targetDirection);
+                if (time != Mathf.Infinity)
                 {
-                    if (smartMissile)
-                    {
-                        remainingTime = smartMissile.expireTime - Time.time;
-                        totalTime = smartMissile.totalTime;
-
-                        time = BallisticEquations.SolveBallisticArc(me.position, speed, targetPosition, V, Vector3.zero, out Vector3 direction);
-                        if (time != Mathf.Infinity)
-                        {
-                            estTime = time;
-                        }
-                    }
-                }
-
-                if (estTime <= remainingTime)
-                {
-                    targetPosition += (V * estTime);
+                    estTime = time;
                 }
                 else
                 {
-                    Vector3 A = !guess && target.type == ObjectTypes.Vehicle ? TargetManager.GetAcceleration(target.tank) : Vector3.zero;
-                    if (projectile.rbody.useGravity || ballisticMissileActive)
+                    failedBallistic = true;
+                    targetDirection = relDist;
+                }
+
+                if (estTime <= remainingTime || remainingTime <= 0.0f)
+                {
+                    goto DoRotateNow;
+                }
+                else
+                {
+                    // we have failed timeout check. Potentially, no solution was found
+                    if (!accelerationGravityAdjusted && ballisticMissileActive)
                     {
                         A -= Physics.gravity * projectile.GetGravityScale();
+                        failedBallistic = false;
                     }
-                    if (time == Mathf.Infinity)
+
+                    // if no solution was found, then we shouldn't bother looking for a new ballistic arc
+                    // if we only failed due to timeout, then we can go looking for a new ballistic arc with gravity
+                    float remainingDistance = remainingTime * speed;
+                    if (!failedBallistic && remainingDistance < relDist.magnitude)
                     {
-                        time = BallisticEquations.SolveBallisticArc(me.position, speed, targetPosition, V, A, out Vector3 direction);
-                    }
-                    if (time != Mathf.Infinity)
-                    {
-                        // Vector3 originalPosition = targetPosition;
-                        targetPosition += (V * time) + (A * time * time / 2);
+                        // we try and search for a path using a barrel length of the maximal engagement envelope
+                        time = BallisticEquations.SolveBallisticArc(myPosition, speed, targetPosition, targetVelocity, A, out targetDirection, remainingDistance);
                     }
                     else
                     {
-                        // Only possible if using gravity
-                        targetPosition += (V * estTime);
-                        Vector3 vector = targetPosition - me.position;
-                        if (ballisticMissileActive && vector != Vector3.up && vector != Vector3.down)
+                        // no solution was possible
+                        goto DoRotateNow;
+                    }
+
+                    if (time != Mathf.Infinity)
+                    {
+                        // we succeeded with gravity assisted ballistic arc - go use that
+                        goto DoRotateNow;
+                    }
+                    else
+                    {
+                        // No solution is possible
+                        Vector3 relVec = relDist.normalized;
+                        if (ballisticMissileActive && relVec != Vector3.up && relVec != Vector3.down)
                         {
-                            float angle = Mathf.Atan(vector.y / Mathf.Sqrt(vector.x * vector.x + vector.z * vector.z));
-                            Vector3 adjustedVector = new Vector3(vector.x, 0f, vector.z).normalized;
+                            // if projectile uses gravity
+                            float angle = Mathf.Atan(relVec.y / Mathf.Sqrt(relVec.x * relVec.x + relVec.z * relVec.z));
+                            Vector3 adjustedVector = new Vector3(relVec.x, 0f, relVec.z).normalized;
 
                             float targetAngle;
                             if (angle <= 0f)
@@ -124,6 +147,7 @@ namespace WeaponAimMod
 
                             if (remainingTime > 0f)
                             {
+                                float totalTime = smartMissile.totalTime;
                                 float constant = totalTime > 0f ? totalTime : 2.0f;
                                 float percentage = Mathf.Clamp(remainingTime, 0, constant) / constant;
                                 adjustedAngle = (angle * percentage) + (targetAngle * (1 - percentage));
@@ -131,19 +155,26 @@ namespace WeaponAimMod
 
                             // Point halfway between angle for maximum range, and angle to target
                             adjustedVector.y = Mathf.Tan(adjustedAngle);
-                            targetPosition = adjustedVector + me.position;
+                            targetDirection = adjustedVector;
+                        }
+                        else
+                        {
+                            // ballistic, but somehow directly above/below, in which case we want to just go
+                            // OR - no valid path. Just make best effort then
+                            targetDirection = relDist;
                         }
                     }
                 }
-                ApplyRotation(__instance, projectile, me, targetPosition, reduced);
+                DoRotateNow:
+                ApplyRotation(__instance, projectile, targetDirection, reduced);
             }
 
             // Do missile targeting
             [HarmonyPrefix]
-            public static bool Prefix(ref SeekingProjectile __instance)
+            public static bool Prefix(SeekingProjectile __instance)
             {
                 Projectile projectile = (Projectile)m_MyProjectile.GetValue(__instance);
-                bool enemyMissile = projectile.Shooter == null || !ManSpawn.IsPlayerTeam(projectile.Shooter.Team);
+                bool enemyMissile = projectile.Shooter.IsNull() || !ManSpawn.IsPlayerTeam(projectile.Shooter.Team);
                 bool reduced = false;
 
                 // missile always have a SmartMissile on there, even if smart missiles is disabled
@@ -151,55 +182,68 @@ namespace WeaponAimMod
                 bool ballisticMissileActive = !smartMissile.disableBallistic && WeaponAimSettings.BallisticMissile;
                 if (projectile is MissileProjectile missile && ballisticMissileActive)
                 {
-                    float lifetime = (float)m_MaxBoosterLifetime.GetValue(missile);
-                    reduced = lifetime < 0f;
+                    reduced = !smartMissile.boostersFiring;
                 }
 
+                Vector3 myPosition = __instance.transform.position;
                 // Only do leading if is a player, or enemy lead enabled, and missile hasn't specified we should disable target leading
                 if (!smartMissile.disableLead && ((enemyMissile && WeaponAimSettings.EnemyMissileLead) || (!enemyMissile && WeaponAimSettings.PlayerMissileLead))) {
                     Visible target = (Visible)GetCurrentTarget.Invoke(__instance, null);
-                    Transform me = (Transform)m_MyTransform.GetValue(__instance);
 
                     // If have a target, use it
                     if (target.IsNotNull())
                     {
                         Vector3 targetPosition = (Vector3)GetTargetAimPosition.Invoke(__instance, null);
-                        if (target.rbody != null && (target.rbody.velocity.magnitude > 1f || ballisticMissileActive))
+                        if (target.rbody.IsNotNull() && (target.rbody.velocity.magnitude > 1f || ballisticMissileActive))
                         {
-                            CalculateAndApplyRotation(__instance, projectile, target, me, targetPosition, target.rbody.velocity, reduced);
+                            CalculateAndApplyRotation(__instance, projectile, target, targetPosition, target.rbody.velocity, Vector3.zero, reduced);
                         }
                         else
                         {
-                            ApplyRotation(__instance, projectile, me, targetPosition, reduced);
+                            ApplyRotation(__instance, projectile, targetPosition - myPosition, reduced);
                         }
                     }
-
                     // If no target currently visible, steer towards last known position of any target
                     else if (WeaponAimSettings.SmartMissile)
                     {
-                        if (smartMissile != null && smartMissile.target != null)
+                        if (smartMissile.target.IsNotNull())
                         {
-                            Vector3 targetPosition = smartMissile.position + (Time.time - smartMissile.time) * smartMissile.velocity;
-                            if (smartMissile.velocity.magnitude > 1f || ballisticMissileActive)
+                            float elapsedTime = Time.time - smartMissile.shotTime;
+                            Vector3 targetPosition = smartMissile.targetPosition + (elapsedTime * smartMissile.targetVelocity) + (elapsedTime * elapsedTime * smartMissile.targetAcceleration / 2);
+                            Vector3 targetVelocity = smartMissile.targetVelocity + (elapsedTime * smartMissile.targetAcceleration);
+                            if (smartMissile.targetVelocity.magnitude > 1f || ballisticMissileActive)
                             {
-                                CalculateAndApplyRotation(__instance, projectile, smartMissile.target, me, targetPosition, smartMissile.velocity, reduced, true);
+                                CalculateAndApplyRotation(__instance, projectile, smartMissile.target,
+                                    targetPosition, targetVelocity, smartMissile.targetAcceleration, reduced, true);
                             }
                             else
                             {
-                                ApplyRotation(__instance, projectile, me, targetPosition, reduced);
+                                ApplyRotation(__instance, projectile, targetPosition - myPosition, reduced);
                             }
                         }
+                        else
+                        {
+                            ApplyRotationToRbody(projectile.rbody, Quaternion.identity);
+                        }
+                    }
+                    else
+                    {
+                        ApplyRotationToRbody(projectile.rbody, Quaternion.identity);
                     }
                     return false;
                 }
                 // If no lead, but smart missiles selected - rotate towards that
                 else if (WeaponAimSettings.SmartMissile)
                 {
-                    if (smartMissile != null && smartMissile.target != null)
+                    if (smartMissile.target.IsNotNull())
                     {
-                        Transform me = (Transform)m_MyTransform.GetValue(__instance);
-                        Vector3 targetPosition = smartMissile.position + (Time.time - smartMissile.time) * smartMissile.velocity;
-                        ApplyRotation(__instance, projectile, me, targetPosition, reduced);
+                        float elapsedTime = Time.time - smartMissile.shotTime;
+                        Vector3 targetPosition = smartMissile.targetPosition + (elapsedTime * smartMissile.targetVelocity) + (elapsedTime * elapsedTime * smartMissile.targetAcceleration / 2);
+                        ApplyRotation(__instance, projectile, targetPosition - myPosition, reduced);
+                    }
+                    else
+                    {
+                        ApplyRotationToRbody(projectile.rbody, Quaternion.identity);
                     }
                     return false;
                 }
@@ -208,17 +252,23 @@ namespace WeaponAimMod
 
             // Update smart missile
             [HarmonyPostfix]
-            public static void Postfix(ref SeekingProjectile __instance)
+            public static void Postfix(SeekingProjectile __instance)
             {
                 Visible target = (Visible)GetCurrentTarget.Invoke(__instance, null);
                 SmartMissile smartMissile = __instance.GetComponent<SmartMissile>();
-                if (smartMissile != null && target != null)
+                if (smartMissile.IsNotNull() && target.IsNotNull())
                 {
                     Vector3 targetPosition = (Vector3)GetTargetAimPosition.Invoke(__instance, null);
                     smartMissile.target = target;
-                    smartMissile.time = Time.time;
-                    smartMissile.position = targetPosition;
-                    smartMissile.velocity = target.rbody ? target.rbody.velocity : Vector3.zero;
+                    smartMissile.shotTime = Time.time;
+                    smartMissile.targetPosition = targetPosition;
+                    smartMissile.targetVelocity = target.rbody ? target.rbody.velocity : Vector3.zero;
+
+                    TargetManager manager = target.GetComponent<TargetManager>();
+                    if (manager.IsNotNull())
+                    {
+                        smartMissile.targetAcceleration = manager.Acceleration;
+                    }
                 }
             }
         }
@@ -228,22 +278,20 @@ namespace WeaponAimMod
         public static class MissileFirePatch
         {
             [HarmonyPostfix]
-            private static void Postfix(ref Projectile __instance, bool seekingRounds)
+            public static void Postfix(Projectile __instance, bool seekingRounds)
             {
                 // If there's a SeekingProjectile, set SmartMissile
                 SeekingProjectile missile = __instance.SeekingProjectile;
-                if (missile != null && seekingRounds)
+                if (missile.IsNotNull() && seekingRounds)
                 {
                     SmartMissile smartMissile = __instance.GetComponent<SmartMissile>();
-                    if (smartMissile == null)
+                    if (smartMissile.IsNull())
                     {
                         smartMissile = __instance.gameObject.AddComponent<SmartMissile>();
-                        smartMissile.disableLead = false;
-                        smartMissile.velocityOverride = 0.0f;
+                        smartMissile.Init();
                     }
-
                     Tank shooter = __instance.Shooter;
-                    Visible target = null;
+                    Visible target;
                     if (shooter.control.targetType == ObjectTypes.Vehicle)
                     {
                         target = shooter.Vision.GetFirstVisibleTechIsEnemy(shooter.Team);
@@ -253,18 +301,18 @@ namespace WeaponAimMod
                         target = shooter.Vision.GetFirstVisible();
                     }
 
-                    if (target != null)
+                    if (target.IsNotNull())
                     {
                         smartMissile.target = target;
-                        smartMissile.time = Time.time;
-                        smartMissile.position = target.centrePosition;
+                        smartMissile.shotTime = Time.time;
+                        smartMissile.targetPosition = target.centrePosition;
                         if (smartMissile.velocityOverride > 0.0f)
                         {
-                            smartMissile.velocity = target.rbody.velocity.normalized * smartMissile.velocityOverride;
+                            smartMissile.targetVelocity = target.rbody.velocity.normalized * smartMissile.velocityOverride;
                         }
                         else
                         {
-                            smartMissile.velocity = target.rbody.velocity;
+                            smartMissile.targetVelocity = target.rbody.velocity;
                         }
                     }
                     else
@@ -277,51 +325,29 @@ namespace WeaponAimMod
         }
 
         [HarmonyPatch(typeof(MissileProjectile), "DeactivateBoosters")]
-        public static class BallisticMissilePatch2
+        public static class PatchBoosterDeactivation
         {
             [HarmonyPostfix]
-            public static void Postfix(ref MissileProjectile __instance)
+            public static void Postfix(MissileProjectile __instance)
             {
                 SmartMissile smartMissile = __instance.GetComponent<SmartMissile>();
-                bool ballisticMissileActive = WeaponAimSettings.BallisticMissile;
-                if (ballisticMissileActive && smartMissile != null)
-                {
-                    ballisticMissileActive = !smartMissile.disableBallistic;
-                }
-                // If projectile is not magic bs, enable ballistics
-                // bool originalGravity = __instance.CanApplyGravity();
-                if (ballisticMissileActive)
-                {
-                    float current = (float) m_MaxBoosterLifetime.GetValue(__instance);
-                    if (current > 0f)
-                    {
-                        m_MaxBoosterLifetime.SetValue(__instance, -current);
-                    }
-                    else
-                    {
-                        m_MaxBoosterLifetime.SetValue(__instance, Mathf.NegativeInfinity);
-                    }
-                }
+                smartMissile.boostersFiring = false;
             }
         }
 
-        [HarmonyPatch(typeof(MissileProjectile), "OnRecycle")]
-        public static class ClearBallisticToggle
+        [HarmonyPatch(typeof(MissileProjectile), "ActivateBoosters")]
+        public static class PatchBoosterActivation
         {
             [HarmonyPostfix]
-            public static void Postfix(ref MissileProjectile __instance)
+            public static void Postfix(MissileProjectile __instance)
             {
-                float current = (float)m_MaxBoosterLifetime.GetValue(__instance);
-                if (current != Mathf.NegativeInfinity)
-                {
-                    m_MaxBoosterLifetime.SetValue(__instance, Mathf.Abs(current));
-                }
-                else
-                {
-                    m_MaxBoosterLifetime.SetValue(__instance, Mathf.Abs(0f));
-                }
+                SmartMissile smartMissile = __instance.GetComponent<SmartMissile>();
+                smartMissile.boostersFiring = true;
             }
         }
+
+        // Note: not all missiles have SmartMissile
+        // SmartMissile is tied to Seeking rounds, not missile rounds
         [HarmonyPatch(typeof(MissileProjectile), "Fire")]
         public static class BallisticMissileFirePatch
         {
@@ -337,7 +363,7 @@ namespace WeaponAimMod
             }
 
             [HarmonyPrefix]
-            public static bool Prefix(ref MissileProjectile __instance, FireData fireData, out State __state)
+            public static bool Prefix(MissileProjectile __instance, FireData fireData, out State __state)
             {
                 float projectileLifetime = (float)m_LifeTime.GetValue((Projectile) __instance);
                 float boosterLifetime = (float)m_MaxBoosterLifetime.GetValue(__instance);
@@ -345,7 +371,7 @@ namespace WeaponAimMod
 
                 SmartMissile smartMissile = __instance.GetComponent<SmartMissile>();
                 bool disableBallisticOverride = false;
-                if (smartMissile)
+                if (smartMissile.IsNotNull())
                 {
                     disableBallisticOverride = smartMissile.disableBallistic;
                 }
@@ -380,7 +406,7 @@ namespace WeaponAimMod
             }
 
             [HarmonyPostfix]
-            public static void Postfix(ref MissileProjectile __instance, State __state)
+            public static void Postfix(MissileProjectile __instance, Vector3 fireDirection, State __state)
             {
                 m_LifeTime.SetValue((Projectile) __instance, __state.projectileLifetime);
                 m_MaxBoosterLifetime.SetValue(__instance, __state.boosterLifetime);
@@ -392,6 +418,13 @@ namespace WeaponAimMod
                     smartMissile.totalTime = __state.adjustedBoosterLifetime;
                     // smartMissile.finalCorrection = false;
                 }
+
+                // forcibly change rotation so acceleration doesn't do wacky-looking things
+                // that are technically correct, but look weird
+                // __instance.trans.rotation = Quaternion.LookRotation(__instance.rbody.velocity);
+
+                // force spawn projectiles farther from barrel to allow for that rotation without colliding with stuff
+                __instance.trans.position += fireDirection.normalized * 2.0f;
             }
         }
     }

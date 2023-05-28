@@ -9,8 +9,8 @@ namespace WeaponAimMod
     [RequireComponent(typeof(FireData))]
     public class TimedFuseData : MonoBehaviour
     {
-        public float m_FuseTime = 10.0f;
+        public float m_FuseTime = 0.0f;
         public float offset = 0.0f;
-        public bool always_present = true;
+        public bool always_present = false;
     }
 }

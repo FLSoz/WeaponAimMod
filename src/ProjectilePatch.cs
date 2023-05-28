@@ -7,6 +7,9 @@ using System.Runtime.CompilerServices;
 using System.Diagnostics;
 using System.Text;
 using RuntimeDebugDraw;
+using System.Collections.Generic;
+using System.Reflection.Emit;
+using static CompoundExpression;
 
 namespace WeaponAimMod
 {
@@ -65,7 +68,7 @@ namespace WeaponAimMod
             private static readonly FieldInfo m_ChangeTargetInteval = typeof(TargetAimer).GetField("m_ChangeTargetInteval", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             private static readonly FieldInfo m_CannonBarrels = AccessTools.Field(typeof(ModuleWeaponGun), "m_CannonBarrels");
 
-            [HarmonyPriority(999)]
+            [HarmonyPriority(Priority.Low)]
             public static bool Prefix(TargetAimer __instance)
             {
                 try
@@ -86,7 +89,7 @@ namespace WeaponAimMod
                         {
                             PatchAiming.Target.SetValue(__instance, manualTarget);
                         }
-                        else if (__instance.Target != null && (!__instance.Target.isActive || Time.time > ___m_ChangeTargetTimeout || !tank.Vision.CanSee(__instance.Target)))
+                        else if (__instance.Target.IsNotNull() && (!__instance.Target.isActive || Time.time > ___m_ChangeTargetTimeout || !tank.Vision.CanSee(__instance.Target)))
                         {
                             __instance.Reset();
                             m_ChangeTargetTimeout.SetValue(__instance, ___m_ChangeTargetTimeout);
@@ -114,7 +117,7 @@ namespace WeaponAimMod
                             {
                                 WeaponAimMod.logger.Error(e);
                                 WeaponAimMod.logger.Error($"Failed to get aim point for {__instance.Target.name}");
-                                WeaponAimMod.logger.Error($"{__instance.Target.gameObject == null}");
+                                WeaponAimMod.logger.Error($"{__instance.Target.gameObject.IsNull()}");
 
                                 m_TargetPosition.SetValue(__instance, __instance.Target.transform.position);
 
@@ -141,7 +144,7 @@ namespace WeaponAimMod
                 {
                     Visible target = __instance.Target;
                     FireData fireData = __instance.GetComponentInParent<FireData>();
-                    if (fireData != null && __instance.HasTarget && !Singleton.Manager<ManPauseGame>.inst.IsPaused && ((target.type == ObjectTypes.Vehicle && target.tank.IsNotNull()) || (target.type == ObjectTypes.Block && target.block.IsNotNull())))
+                    if (fireData.IsNotNull() && __instance.HasTarget && !Singleton.Manager<ManPauseGame>.inst.IsPaused && ((target.type == ObjectTypes.Vehicle && target.tank.IsNotNull()) || (target.type == ObjectTypes.Block && target.block.IsNotNull())))
                     {
                         TankBlock block = (TankBlock)ProjectilePatch.m_Block.GetValue(__instance);
                         Tank tank = (bool)(UnityEngine.Object)block ? block.tank : (Tank)null;
@@ -149,8 +152,8 @@ namespace WeaponAimMod
                         string name = block ? block.name : "UNKNOWN";
                         ModuleWeaponAimHelper helper = block.GetComponent<ModuleWeaponAimHelper>();
 
-                        bool enemyWeapon = tank == null || !ManSpawn.IsPlayerTeam(tank.Team);
-                        if (helper != null)
+                        bool enemyWeapon = tank.IsNull() || !ManSpawn.IsPlayerTeam(tank.Team);
+                        if (helper.IsNotNull())
                         {
                             TimedFuseData timedFuse = helper.timedFuseData;
                             float muzzleVelocity = fireData.m_MuzzleVelocity;
@@ -172,7 +175,7 @@ namespace WeaponAimMod
                                 bool useGravity = helper.useGravity;
                                 if (!useGravity && WeaponAimSettings.BallisticMissile)
                                 {
-                                    if (bulletPrefab != null && bulletPrefab is MissileProjectile)
+                                    if (bulletPrefab.IsNotNull() && bulletPrefab is MissileProjectile)
                                     {
                                         useGravity = true;
                                     }  
@@ -305,7 +308,7 @@ namespace WeaponAimMod
                                     }
                                 }
 
-                                if (timedFuse != null)
+                                if (timedFuse.IsNotNull())
                                 {
                                     timedFuse.m_FuseTime = time;
                                 }
@@ -315,7 +318,7 @@ namespace WeaponAimMod
                             // Either disabled for enemy, or is a beam weapon
                             else
                             {
-                                if (timedFuse != null)
+                                if (timedFuse.IsNotNull())
                                 {
                                     timedFuse.m_FuseTime = 0.0f;
                                 }
@@ -364,8 +367,9 @@ namespace WeaponAimMod
 
                 // Do timed fuse setting
                 TimedFuseData timedFuse = fireData.GetComponentInParent<TimedFuseData>();
-                if (timedFuse != null && (WeaponAimSettings.AutoSetFuse || timedFuse.always_present))
+                if (timedFuse.IsNotNull() && timedFuse.m_FuseTime > 0.0f)
                 {
+                    // LK Pike is somehow abusing this to get infinite range
                     float fuseTime = timedFuse.m_FuseTime + timedFuse.offset;
                     WeaponAimMod.logger.Trace($"Setting fuse on {__instance.name} to ${fuseTime} seconds");
                     m_LifeTime.SetValue(__instance, fuseTime);
@@ -373,18 +377,71 @@ namespace WeaponAimMod
                 return true;
             }
 
-            private static void Postfix(ref Projectile __instance, float __state)
+            private static void Postfix(Projectile __instance, float __state)
             {
                 m_LifeTime.SetValue(__instance, __state);
             }
         }
 
-        private const float tolerance = 15.0f;
+        private const float tolerance = 5.0f;
+        [HarmonyPatch(typeof(ModuleWeapon), "ControlInputTargeted")]
+        public static class PatchAIFireControl
+        {
+            public static Vector3 GetTargetPosition(ModuleWeapon __instance, Vector3 providedTarget)
+            {
+                TargetAimer aimer = (TargetAimer)PatchAutoAim.m_TargetAimer.GetValue(__instance);
+                if (aimer.IsNotNull() && aimer.HasTarget) {
+                    return (Vector3)PatchAutoAim.m_TargetPosition2.GetValue(aimer);
+                }
+                return providedTarget;
+            }
 
-        // Always fire when target is within tolerance of 15 degrees
-        [HarmonyPatch(typeof(ModuleWeapon))]
-        [HarmonyPatch("UpdateAutoAimBehaviour")]
-        public static class PatchModuleWeapon
+            public static bool IsMissile(ModuleWeapon __instance)
+            {
+                IModuleWeapon weaponComponent = (IModuleWeapon)PatchAutoAim.m_WeaponComponent.GetValue(__instance);
+                return weaponComponent is ModuleWeaponGun && ((ModuleWeaponGun)weaponComponent).m_SeekingRounds;
+            }
+
+            public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
+            {
+                List<CodeInstruction> instrList = instructions.ToList();
+                instrList.RemoveRange(2, 2);
+                instrList.Insert(2, new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(PatchAIFireControl), nameof(GetTargetPosition))));
+
+                int conditionalBeginIndex = 0;
+                Label myLabel = generator.DefineLabel();
+                for(int i = 0; i < instrList.Count; i++)
+                {
+                    CodeInstruction instruction = instrList[i];
+                    // right before we begin conditional. Here is where we insert our jump
+                    if (instruction.opcode == OpCodes.Stloc_2)
+                    {
+                        conditionalBeginIndex = i + 1;
+                    }
+
+                    if (instruction.opcode == OpCodes.Ble_Un_S)
+                    {
+                        // Add my label
+                        instrList[i+1].labels.Add(myLabel);
+                        break;
+                    }
+                }
+
+                // insert jump to conditional block
+                // here is where we check for missiles, and always fire in that case
+                instrList.InsertRange(conditionalBeginIndex, new CodeInstruction[]
+                {
+                    new CodeInstruction(OpCodes.Ldarg_0),
+                    new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(PatchAIFireControl), nameof(IsMissile))),
+                    new CodeInstruction(OpCodes.Brtrue_S, myLabel)
+                });
+                return instrList;
+            }
+        }
+
+        // Use TargetAimer's target position instead of calculating it again
+        [HarmonyPatch(typeof(ModuleWeapon), "UpdateAutoAimBehaviour")]
+        public static class PatchAutoAim
         {
             public static readonly FieldInfo m_TargetPosition = typeof(ModuleWeapon).GetField("m_TargetPosition", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             public static readonly FieldInfo m_TargetPosition2 = typeof(TargetAimer).GetField("m_TargetPosition", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -396,37 +453,48 @@ namespace WeaponAimMod
             public static readonly FieldInfo m_SeekingProjectile = typeof(Projectile).GetField("m_SeekingProjectile", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             public static readonly FieldInfo m_VisionConeAngle = typeof(SeekingProjectile).GetField("m_VisionConeAngle", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
+            public static Vector3 GetTargetPosition(TargetAimer targetAimer)
+            {
+                return (Vector3)m_TargetPosition2.GetValue(targetAimer);
+            }
+            // Use already calculated target position instead of getting aim point again
+            public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+            {
+                List<CodeInstruction> instrList = instructions.ToList();
+                int removePositionStartIndex = 0;
+                for(int i = 0; i < instrList.Count; i++)
+                {
+                    CodeInstruction instruction = instrList[i];
+                    if (instruction.opcode == OpCodes.Callvirt && (MethodInfo) instruction.operand == AccessTools.Method(typeof(Visible), "GetAimPoint"))
+                    {
+                        Console.WriteLine("Removing GetAimPoint");
+                        removePositionStartIndex = i - 2;
+                        break;
+                    }
+                }
+                // get rid of unnecessary variable
+                instrList.RemoveRange(removePositionStartIndex, 3);
+                instrList.Insert(removePositionStartIndex, new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(PatchAutoAim), nameof(GetTargetPosition))));
+                return instrList;
+            }
+            // Always fire if we're missiles
+            /*
             public static void Postfix(ModuleWeapon __instance)
             {
-                if (!__instance.FireControl && __instance.block.tank.IsAIControlled())
+                if (!__instance.FireControl && __instance.m_AutoFire && __instance.block.tank.IsAIControlled())
                 {
                     TargetAimer targetAimer = (TargetAimer)m_TargetAimer.GetValue(__instance);
                     if (targetAimer.HasTarget)
                     {
-                        Vector3 actualTargetPosition = (Vector3)m_TargetPosition2.GetValue(targetAimer);
-                        m_TargetPosition.SetValue(__instance, actualTargetPosition);
-
                         IModuleWeapon weaponComponent = (IModuleWeapon)m_WeaponComponent.GetValue(__instance);
-                        float range = weaponComponent.GetRange();
-
-                        Transform fireTransform = weaponComponent.GetFireTransform();
-                        Vector3 position = fireTransform.position;
-
-                        if ((actualTargetPosition - position).sqrMagnitude < range * range)
+                        if (weaponComponent is ModuleWeaponGun && ((ModuleWeaponGun)weaponComponent).m_SeekingRounds)
                         {
-                            if (weaponComponent is ModuleWeaponGun && ((ModuleWeaponGun) weaponComponent).m_SeekingRounds)
-                            {
-                                __instance.FireControl = true;
-                            }
-                            else if (Vector3.Angle(fireTransform.forward, actualTargetPosition - __instance.block.trans.position) < tolerance)
-                            {
-                                __instance.FireControl = true;
-                            }
+                            __instance.FireControl = true;
                         }
                     }
                 }
             }
-
+            */
             public static Exception Finalizer(Exception __exception)
             {
                 if (__exception != null)
@@ -447,6 +515,11 @@ namespace WeaponAimMod
                     if (__instance.tank.IsNotNull())
                     {
                         __result = __instance.tank.control.GetWeaponTargetLocation(origin);
+                    }
+                    else if (__instance.IsNull() || __instance.gameObject.IsNull())
+                    {
+                        // null GameObject? - visible has been deleted, tell it to aim at aimer origin
+                        __result = origin;
                     }
                     else
                     {

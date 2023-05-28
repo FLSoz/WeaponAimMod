@@ -310,7 +310,7 @@ namespace WeaponAimMod
 
         private bool AnyModuleCanSee(Visible item, out float distSq)
         {
-            if (item.tank != null && item.tank.netTech != null && item.tank.netTech.InitialSpawnShieldID != 0U)
+            if (item.tank.IsNotNull() && item.tank.netTech.IsNotNull() && item.tank.netTech.InitialSpawnShieldID != 0U)
             {
                 distSq = 0f;
                 return false;
@@ -337,11 +337,11 @@ namespace WeaponAimMod
             bool flag = true;
             if (Singleton.Manager<ManNetwork>.inst.IsMultiplayer())
             {
-                if (base.Tech.netTech == null)
+                if (base.Tech.netTech.IsNull())
                 {
                     flag = false;
                 }
-                else if (base.Tech.netTech.NetPlayer == null)
+                else if (base.Tech.netTech.NetPlayer.IsNull())
                 {
                     flag = ManNetwork.IsHost;
                 }
@@ -365,16 +365,16 @@ namespace WeaponAimMod
                 foreach (Visible visible2 in Singleton.Manager<ManWorld>.inst.TileManager.IterateVisibles(ObjectTypes.Vehicle, searchPosition, this.m_SearchRadius))
                 {
                     Tank tank = visible2.tank;
-                    if (Singleton.Manager<ManNetwork>.inst.IsMultiplayer() && Singleton.Manager<ManNetwork>.inst.NetController != null)
+                    if (Singleton.Manager<ManNetwork>.inst.IsMultiplayer() && Singleton.Manager<ManNetwork>.inst.NetController.IsNotNull())
                     {
                         NetTech notableTech = Singleton.Manager<ManNetwork>.inst.NetController.GetNotableTech();
-                        if (notableTech != null && notableTech.tech == tank && tank.IsEnemy(team) && notableTech.InitialSpawnShieldID == 0U && tank.CentralBlock != null)
+                        if (notableTech.IsNotNull() && notableTech.tech == tank && tank.IsEnemy(team) && notableTech.InitialSpawnShieldID == 0U && tank.CentralBlock.IsNotNull())
                         {
                             visible = notableTech.tech.visible;
                             break;
                         }
                     }
-                    if (tank != null && tank.IsEnemy(team) && tank.ShouldShowOverlay && tank.CentralBlock != null)
+                    if (tank.IsNotNull() && tank.IsEnemy(team) && tank.ShouldShowOverlay && tank.CentralBlock.IsNotNull())
                     {
                         float sqrMagnitude = (searchPosition - tank.trans.position).sqrMagnitude;
                         float num2;
@@ -388,7 +388,7 @@ namespace WeaponAimMod
                                 visible = tank.visible,
                                 distSq = sqrMagnitude
                             });
-                            if (visible == null || sqrMagnitude < bestDist)
+                            if (visible.IsNull() || sqrMagnitude < bestDist)
                             {
                                 visible = tank.visible;
                                 bestDist = sqrMagnitude;
@@ -441,7 +441,7 @@ namespace WeaponAimMod
 
                 // Check if targetable. If it is, then return it
                 Visible.ConeFiltered filteredVisible = this.m_Visibles[octant][index];
-                if (filteredVisible.visible != null)
+                if (filteredVisible.visible.IsNotNull())
                 {
                     Visible visible = filteredVisible.visible;
                     Tank tank = filteredVisible.visible.tank;
@@ -647,7 +647,7 @@ namespace WeaponAimMod
     [HarmonyPatch("RemoveVision")]
     public static class PatchRemoveVision
     {
-        public static void Postfix(ref TechVision __instance, ref ModuleVision vision)
+        public static void Postfix(TechVision __instance, ModuleVision vision)
         {
             OctantVision octantVision = __instance.GetComponent<OctantVision>();
             if (octantVision)
@@ -685,7 +685,7 @@ namespace WeaponAimMod
                 if (block && block.tank && block.tank.IsPlayer)
                 {
                     Visible currentTarget = __instance.Target;
-                    if (currentTarget != null)
+                    if (currentTarget.IsNotNull())
                     {
                         WeaponAimMod.logger.Debug($"TO DRAW TARGET BOX AROUND: {currentTarget.name}");
                         TargetManager.DrawTarget(currentTarget.tank);
@@ -694,7 +694,7 @@ namespace WeaponAimMod
                 else
                 {
                     Visible currentTarget = __instance.Target;
-                    if (currentTarget != null)
+                    if (currentTarget.IsNotNull())
                     {
                         // WeaponAimMod.logger.Trace("NOT A PLAYER: IGNORING");
                     }
@@ -703,7 +703,7 @@ namespace WeaponAimMod
         }
 #endif
 
-        public static bool Prefix(TargetAimer __instance, ref float rotateSpeed)
+        public static bool Prefix(TargetAimer __instance, float rotateSpeed)
         {
             TankBlock block = (TankBlock)m_Block.GetValue(__instance);
 
@@ -865,7 +865,7 @@ namespace WeaponAimMod
                                 octants = OctantVision.GetOctants(limits, parentGimbal, block);
 
                                 Visible betterTarget = octantVision.GetFirstVisibleTechIsEnemy(octants, limits, block, XGimbal, YGimbal, aimDelegate);
-                                if (betterTarget != null)
+                                if (betterTarget.IsNotNull())
                                 {
                                     Target.SetValue(__instance, betterTarget);
                                     m_ChangeTargetTimeout.SetValue(__instance, Time.time + 0.5f); // Set target for at least next half second
@@ -888,7 +888,7 @@ namespace WeaponAimMod
     [HarmonyPatch("CalcAim")]
     public static class PatchAimClamp
     {
-        public static bool Prefix(ref GimbalAimer __instance, out float __state)
+        public static bool Prefix(GimbalAimer __instance, out float __state)
         {
             __state = __instance.aimClampMaxPercent;
             if (WeaponAimSettings.OctantAim)
@@ -898,7 +898,7 @@ namespace WeaponAimMod
             return true;
         }
 
-        public static void Postfix(ref GimbalAimer __instance, float __state)
+        public static void Postfix(GimbalAimer __instance, float __state)
         {
             __instance.aimClampMaxPercent = __state;
         }

@@ -14,7 +14,7 @@ namespace WeaponAimMod
             private static readonly FieldInfo m_DestroyTimeout = typeof(Projectile).GetField("m_DestroyTimeout", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
             private static readonly MethodInfo SpawnExplosion = typeof(Projectile).GetMethod("SpawnExplosion", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
-            public static bool Prefix(ref Projectile __instance)
+            public static bool Prefix(Projectile __instance)
             {
                 d.Assert(__instance.gameObject.activeInHierarchy);
                 if ((bool)m_ExplodeAfterLifetime.GetValue(__instance))
