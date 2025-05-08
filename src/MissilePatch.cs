@@ -305,7 +305,15 @@ namespace WeaponAimMod
                     {
                         smartMissile.target = target;
                         smartMissile.shotTime = Time.time;
-                        smartMissile.targetPosition = target.centrePosition;
+                        try
+                        {
+                            smartMissile.targetPosition = target.centrePosition;
+                        }
+                        catch (Exception e)
+                        {
+                            WeaponAimMod.logger.Error(e, "SmartMissile failed to get target centerPosition");
+                            smartMissile.targetPosition = target.transform.position;
+                        }
                         if (smartMissile.velocityOverride > 0.0f)
                         {
                             smartMissile.targetVelocity = target.rbody.velocity.normalized * smartMissile.velocityOverride;
@@ -331,7 +339,10 @@ namespace WeaponAimMod
             public static void Postfix(MissileProjectile __instance)
             {
                 SmartMissile smartMissile = __instance.GetComponent<SmartMissile>();
-                smartMissile.boostersFiring = false;
+                if (smartMissile)
+                {
+                    smartMissile.boostersFiring = false;
+                }
             }
         }
 
@@ -342,7 +353,10 @@ namespace WeaponAimMod
             public static void Postfix(MissileProjectile __instance)
             {
                 SmartMissile smartMissile = __instance.GetComponent<SmartMissile>();
-                smartMissile.boostersFiring = true;
+                if (smartMissile)
+                {
+                    smartMissile.boostersFiring = true;
+                }
             }
         }
 
